@@ -12,5 +12,7 @@ We conducted a reciprocal transplant experiment at Little Cayman in two location
 ![alt text](Ranalysis/output/WhatsApp Image 2022-11-29 at 08.06.49.jpeg)
 
 All colonies were placed back in reciprocal transplantation, half of each colony remained at the site of origin and the other half transplanted at the opposite depth. 
+![alt text](Ranalysis/output/IMG_8222.jpeg) 
 
-![alt text](Ranalysis/output/WhatsApp Image 2022-11-29 at 08.06.49.jpeg) 
+All corals were collected in July 2023
+![alt text](Ranalysis/output/IMG_8222.jpeg) 
