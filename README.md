@@ -8,5 +8,7 @@ Resilience of ecosystems under rapid environmental change relies, in part, on th
 ### Hypothesis 
 Corals will adapt to new conditions via changes in morphology (macro and micro skeletal morphology), physiology (nutrient acquisition, fluorescence, symbiotic associations, and metabolic processes) and gene expression. 
 
-We conducted a reciprocal transplant experiment at Little Cayman in two location: Martha’s finyard and Coral city. In both location 10 colonies of PAST were collected at 10 and 40 m in November 2022
+We conducted a reciprocal transplant experiment at Little Cayman in two locations: Martha’s finyard and Coral city. In both locations, 10 colonies of PAST were collected at 10 and 40 m in November 27-28th 2022. The Corals were cut in half and stained with Alizarin Red 1% mix 1 gr in 100ml for 4-5h
+![alt text](https://www.markdownguide.org/assets/images/tux.png)
+
  
