@@ -28,4 +28,3 @@ source /lustre1/home/mass/eskalon/miniconda/bin/activate r-env
 ### Below you can enter your program job command ###
 
 Rscript zoox_clade_analysis.part1.R
-Rscript zoox_clade_analysis.part2.R
