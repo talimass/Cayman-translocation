@@ -35,6 +35,7 @@ STAR --genomeDir index_Pastr.gtf \
  --readFilesIn "$R1" "$R2" \
  --readFilesCommand gunzip -c \
  --runThreadN 8 --outSAMtype BAM SortedByCoordinate \
- --outFileNamePrefix "$R3" --quantMode GeneCounts \
+ --outReadsUnmapped Fastx \
+ --outFileNamePrefix "$R3" \
  --limitBAMsortRAM 64424509440  --outBAMsortingBinsN 100
 done
