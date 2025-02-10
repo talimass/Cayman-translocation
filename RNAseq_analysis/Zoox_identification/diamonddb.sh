@@ -26,7 +26,7 @@ source /lustre1/home/mass/eskalon/miniconda/bin/activate rnaseq
 #########################################
 
 ### Below you can enter your program job command ###
-diamond makedb --in ./databases.with.names/no.duplicates/symbionts_combined_prot.fa -d symbionts_combined_prot.names.nodup.fa_makedb
+diamond makedb --in ./databases.with.names/symbionts_combined_prot.fa -d symbionts_combined_prot.names.fa_makedb
 
 
 
