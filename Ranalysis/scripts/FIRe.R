@@ -3,7 +3,7 @@
 
 
 
-fire.data <- read_csv("/Users/talimass/Documents/Documents - MacBook Pro/GitHub/Cayman-translocation/Ranalysis/Data/FIRe_tranplantation_exsitu_Nov2022_July2023.csv")
+fire.data <- read.csv("/Users/talimass/Documents/Documents - MacBook Pro/GitHub/Cayman-translocation/Ranalysis/Data/FIRe_tranplantation_exsitu_Nov2022_July2023.csv")
 
 #FIRe Data
 
