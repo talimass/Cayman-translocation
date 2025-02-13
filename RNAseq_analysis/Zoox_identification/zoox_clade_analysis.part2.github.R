@@ -63,14 +63,12 @@ hm2 = ggplot(data = mlt2b, mapping = aes(x = variable, y = species, fill = value
   theme(axis.text.x=element_text(angle = 45,size = 8, vjust=.8, hjust=0.8)) + 
   facet_grid(cols = vars(group),scale='free') +
   scale_fill_gradientn(colours = c('white','darkorange1','darkred'),oob = scales::squish)+
-  scale_y_discrete(labels = c("symbd" = "Durusdinium sp.", "symb" = "Breviolum minutum",
+  scale_y_discrete(labels = c("Dtrenchii" = "Durusdinium trenchii", "symb" = "Breviolum minutum",
                               "syma" = "Symbiodinium clade A3", "Stri" = "Symbiodinium tridacnidorum", 
                               "SPilosum" = "Symbiodinium pilosum", "Snec" = "Symbiodinium necroappetens",
-                              "Snat" = "Symbiodinium natans", "SMicUQSCI" = "Symbiodinium microadriaticum UQ", 
-                              "SMicUQCass" = "Symbiodinium microadriaticum UQ Cass", 
-                              "SMicReefgen" = "Symbiodinium microadriaticum RG",
+                              "Snat" = "Symbiodinium natans", "SMicUQSCI" = "Symbiodinium microadriaticum", 
                               "Slin" = "Symbiodinium linuacheae", "SKawaF" = "Fugacium kawagutii", 
-                              "SGoreauC" = "Cladocopium goreau", "CladocPluteaC" = "Cladcopium C15", "Cinf" = "Cladocopium infistulum"))
+                              "SGoreauC" = "Cladocopium goreau", "CladocPluteaC" = "Cladcopium C15"))
 print(hm2)
 dev.off()
 
@@ -85,16 +83,13 @@ hm1 = ggplot(data = mlt2, mapping = aes(x = variable, y = species, fill = value)
   guides(fill=guide_legend(title="% of reads")) +
   theme(axis.text.x=element_text(angle = 45,size = 8, vjust=.8, hjust=0.8)) + 
   facet_grid(cols = vars(group),scale='free') +
-  scale_fill_gradientn(colours = c('white','darkorange1','darkred'),oob = scales::squish)+
-  scale_y_discrete(labels = c("symbd" = "Durusdinium sp.", "symb" = "Breviolum minutum",
+  scale_fill_gradientn(colours = c('white','darkorange1','darkred'),limits=c(0,0.5), oob = scales::squish)+
+  scale_y_discrete(labels = c("Dtrenchii" = "Durusdinium trenchii", "symb" = "Breviolum minutum",
                               "syma" = "Symbiodinium clade A3", "Stri" = "Symbiodinium tridacnidorum", 
                               "SPilosum" = "Symbiodinium pilosum", "Snec" = "Symbiodinium necroappetens",
-                              "Snat" = "Symbiodinium natans", "SMicUQSCI" = "Symbiodinium microadriaticum UQ", 
-                              "SMicUQCass" = "Symbiodinium microadriaticum UQ Cass", 
-                              "SMicReefgen" = "Symbiodinium microadriaticum RG",
+                              "Snat" = "Symbiodinium natans", "SMicUQSCI" = "Symbiodinium microadriaticum", 
                               "Slin" = "Symbiodinium linuacheae", "SKawaF" = "Fugacium kawagutii", 
-                              "SGoreauC" = "Cladocopium goreau", "CladocPluteaC" = "Cladcopium C15", "Cinf" = "Cladocopium infistulum"))
-
+                              "SGoreauC" = "Cladocopium goreau", "CladocPluteaC" = "Cladcopium C15"))
 
 print(hm1)
 dev.off()
