@@ -23,7 +23,7 @@ speciesFreq=list()
 # for each file:
 for(i in 1:length(files1)){
   # print the filename to stdout 
-  cat(names1[i],"\n")
+  cat("starting",names1[i],"\n")
   f1=paste0(indir,"/",files1[i])
   # read the DIAMOND output file .m8
   blast1=fread(f1)
@@ -31,15 +31,9 @@ for(i in 1:length(files1)){
   names(blast1)=cols1
   # select only necessary columns
   blast1=blast1[,c('query' ,'subject','identity','alignment_length','E_value','bit_score')]
-  # assign top priority to the top hit from DIAMOND
-  blast1$i =1:nrow(blast1)
-  top1=function(x){return(1:length(x))}
-  blast1[, priority := top1(i),by=query]
-  # keep only one top hit per query
-  blast1 = blast1[priority ==1,]
   # match hit read to a certain species
   blast1[,species := regmatches(subject,regexpr('^[A-Za-z]+',subject,perl=TRUE))]
-  cat("freq:\n")
+  cat("finished\n")
   # compute and fill the list of species frequencies
   speciesFreq[[i]]=as.data.frame(table(blast1$species))
   # order by frequency
