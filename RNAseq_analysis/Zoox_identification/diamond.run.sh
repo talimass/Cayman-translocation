@@ -26,13 +26,13 @@ source /lustre1/home/mass/eskalon/miniconda/bin/activate rnaseq
 #########################################
 
 ### Below you can enter your program job command ###
-#diamond makedb --in ./databases/symbionts_combined_prot.fa -d symbionts_combined_prot.fa_makedb
 
-for i in /lustre1/home/mass/eskalon/Porites/analysis/mapping/unaligned/*Unmapped.out.mate1; do
+for i in /lustre1/home/mass/eskalon/Porites/analysis/mapping/unaligned/*combined.fastq; do
 
-	diamond blastx --threads 8 \
-	 -d symbionts_combined_prot.names.nodup.fa_makedb.dmnd \
- 	-q $i -o $i.daa --index-chunks 1 -f 100 --top 10 --evalue 0.01
-
-	diamond view -a $i.daa -o $i.m8
+        diamond blastx --threads 8 \
+         -d symbionts_combined_prot.names.fa_makedb.dmnd \
+        -q $i -o $i.daa --outfmt 6 --max-target-seqs 1 --index-chunks 1 -f 100 --evalue 0.01
+        
+	diamond view -a $i.m8.daa -o $i.m8
 done
+
