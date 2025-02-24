@@ -8,6 +8,7 @@ library(pheatmap)
 library(RColorBrewer)
 library(limma)
 library(ggforce)
+library(VennDiagram)
 
 # setting working directory 
 setwd("/home/gospozha/haifa/cayman/rna/mapping/github")
@@ -116,8 +117,21 @@ dev.off()
 dds_lrt <- DESeq(dds, test="LRT", reduced = ~ origin)  
 res_lrt <- results(dds_lrt)
 summary(res_lrt)
+# 8.2 up, 2.4 down
 # how many genes are significantly affected by depth
 sum(res_lrt$padj < 0.1, na.rm=TRUE)
+#2948
+# saving them to a file
+res.ordered <- res_lrt[order(res_lrt$padj),]
+# adding Expression column to show the direction of change in expression, if present.
+# here, the cutoff values are 0.1 for padj and 1.5 for log2FC.
+res.ordered <- data.frame(res.ordered) %>%
+  mutate(Expression = case_when(log2FoldChange >= log(1.5) & padj <= 0.1 ~ "Upregulated",
+                                log2FoldChange <= -log(1.5) & padj <= 0.1 ~ "Downregulated",
+                                TRUE ~ "Unchanged"))
+head(res.ordered)
+write.csv(res.ordered, file="shallow.LRT.DE.genes.csv")
+
 # drawing a heatmap of the most significant genes
 topgenes <- head(rownames(res_lrt[order(res_lrt$padj), ]), 50)
 pdf("Heatmap.top.genes.shallow.pdf",width=7)
@@ -131,8 +145,10 @@ dev.off()
 # comparing S and SS
 res <- results(dds, contrast=c("condition","S","SS"))
 summary(res)
+# 1.3 up, 8.4 down
 # how many genes are DE between S and SS
 sum(res$padj < 0.1, na.rm=TRUE)
+# 2722
 res.ordered <- res[order(res$padj),]
 # adding Expression column to show the direction of change in expression, if present.
 # here, the cutoff values are 0.1 for padj and 1.5 for log2FC.
@@ -157,8 +173,10 @@ dev.off()
 # comparing SS and SD
 res <- results(dds, contrast=c("condition","SS","SD"))
 summary(res)
+# 2.1 up, 3.8 down
 # how many genes are DE between SS and SD
 sum(res$padj < 0.1, na.rm=TRUE)
+# 1646
 res.ordered <- res[order(res$padj),]
 # adding Expression column to show the direction of change in expression, if present.
 # here, the cutoff values are 0.1 for padj and 1.5 for log2FC.
@@ -169,18 +187,67 @@ res.ordered <- data.frame(res.ordered) %>%
 head(res.ordered)
 write.csv(res.ordered, file="SS.SD.DE.genes.csv")
 
+# comparing S and SD
+res <- results(dds, contrast=c("condition","S","SD"))
+summary(res)
+# 4.5 up, 15 down
+# how many genes are DE between SS and SD
+sum(res$padj < 0.1, na.rm=TRUE)
+# 5479
+res.ordered <- res[order(res$padj),]
+# adding Expression column to show the direction of change in expression, if present.
+# here, the cutoff values are 0.1 for padj and 1.5 for log2FC.
+res.ordered <- data.frame(res.ordered) %>%
+  mutate(Expression = case_when(log2FoldChange >= log(1.5) & padj <= 0.1 ~ "Upregulated",
+                                log2FoldChange <= -log(1.5) & padj <= 0.1 ~ "Downregulated",
+                                TRUE ~ "Unchanged"))
+head(res.ordered)
+write.csv(res.ordered, file="S.SD.DE.genes.csv")
+
 # volcano plot
 #reset par
-pdf("Volcano.SS.SD.pdf",width=7)
+pdf("Volcano.S.SD.pdf",width=7)
 par(mfrow=c(1,1))
 # Make a basic volcano plot
-with(res, plot(log2FoldChange, -log10(pvalue), pch=20, main="Volcano plot: SS vs SD", xlim=c(-3,3),ylim=c(0,15)))
+with(res, plot(log2FoldChange, -log10(pvalue), pch=20, main="Volcano plot: S vs SD", xlim=c(-3,3),ylim=c(0,15)))
 # Add colored points: blue if padj<0.01, red if log2FC>1 and padj<0.05)
 with(subset(res, padj<.1 ), points(log2FoldChange, -log10(pvalue), pch=20, col="blue"))
 with(subset(res, padj<.1 & abs(log2FoldChange)>2), points(log2FoldChange, -log10(pvalue), pch=20, col="red"))
 dev.off()
 
 
+# Venn diagram
+
+# writing DE expressed gene names from each comparison to a list
+resSSS <- results(dds, contrast=c("condition","S","SS"))
+resSSSD <- results(dds, contrast=c("condition","SS","SD"))
+resSSD <- results(dds, contrast=c("condition","S","SD"))
+
+pval_threshold <- 0.1
+S.SS <- row.names(resSSS[which(resSSS$padj <= pval_threshold), ])
+SS.SD <- row.names(resSSSD[which(resSSSD$padj <= pval_threshold), ])
+S.SD <- row.names(resSSD[which(resSSD$padj <= pval_threshold), ])
+
+x <- list(
+  A = S.SS, 
+  B = SS.SD, 
+  C = S.SD)
+
+# helper function to display Venn diagram
+display_venn <- function(x, ...){
+  grid.newpage()
+  venn_object <- venn.diagram(x, filename = NULL, ...)
+  grid.draw(venn_object)
+}
+
+# building Venn diagram
+pdf("Venn.shallow.pdf",width=7)
+display_venn(
+  x,
+  category.names = c("S vs SS" , "SS vs SD" , "S vs SD"),
+  fill = c("#999999", "#E69F02", "#56B4E9")
+)
+dev.off()
 #### deep ####
 
 # reading count matrix from a file
@@ -263,8 +330,10 @@ dev.off()
 dds_lrt <- DESeq(dds, test="LRT", reduced = ~ origin + batch )  
 res_lrt <- results(dds_lrt)
 summary(res_lrt)
+# 0.34 up, 2.6 down
 # how many genes are significantly affected by depth
 sum(res_lrt$padj < 0.1, na.rm=TRUE)
+# 773
 # drawing a heatmap of the most significant genes
 topgenes <- head(rownames(res_lrt[order(res_lrt$padj), ]), 50)
 pdf("Heatmap.top.genes.deep.pdf",width=7)
@@ -273,13 +342,25 @@ mat <- mat - rowMeans(mat)
 df <- as.data.frame(colData(dds_lrt)[,c("condition","site")])
 pheatmap(mat, annotation_col=df)
 dev.off()
+# saving them to a file
+res.ordered <- res_lrt[order(res_lrt$padj),]
+# adding Expression column to show the direction of change in expression, if present.
+# here, the cutoff values are 0.1 for padj and 1.5 for log2FC.
+res.ordered <- data.frame(res.ordered) %>%
+  mutate(Expression = case_when(log2FoldChange >= log(1.5) & padj <= 0.1 ~ "Upregulated",
+                                log2FoldChange <= -log(1.5) & padj <= 0.1 ~ "Downregulated",
+                                TRUE ~ "Unchanged"))
+head(res.ordered)
+write.csv(res.ordered, file="deep.LRT.DE.genes.csv")
 
 # calculating DE results for contrasts and writing them to files
 # comparing D and DD
 res <- results(dds, contrast=c("condition","D","DD"))
 summary(res)
+# 0.084 up, 0.061 down
 # how many genes are DE between D and DD
 sum(res$padj < 0.1, na.rm=TRUE)
+# 38
 res.ordered <- res[order(res$padj),]
 # adding Expression column to show the direction of change in expression, if present.
 # here, the cutoff values are 0.1 for padj and 1.5 for log2FC.
@@ -304,8 +385,10 @@ dev.off()
 # comparing DD and DS
 res <- results(dds, contrast=c("condition","DD","DS"))
 summary(res)
+# 7% up, 0.26 down
 # how many genes are DE between DD and DS
 sum(res$padj < 0.1, na.rm=TRUE)
+# 1917
 res.ordered <- res[order(res$padj),]
 # adding Expression column to show the direction of change in expression, if present.
 # here, the cutoff values are 0.1 for padj and 1.5 for log2FC.
@@ -327,4 +410,64 @@ with(subset(res, padj<.1 ), points(log2FoldChange, -log10(pvalue), pch=20, col="
 with(subset(res, padj<.1 & abs(log2FoldChange)>2), points(log2FoldChange, -log10(pvalue), pch=20, col="red"))
 dev.off()
 
+# comparing D and DS
+res <- results(dds, contrast=c("condition","D","DS"))
+summary(res)
+# 12% up, 1.7 down
+# how many genes are DE between DD and DS
+sum(res$padj < 0.1, na.rm=TRUE)
+# 3673
+res.ordered <- res[order(res$padj),]
+# adding Expression column to show the direction of change in expression, if present.
+# here, the cutoff values are 0.1 for padj and 1.5 for log2FC.
+res.ordered <- data.frame(res.ordered) %>%
+  mutate(Expression = case_when(log2FoldChange >= log(1.5) & padj <= 0.1 ~ "Upregulated",
+                                log2FoldChange <= -log(1.5) & padj <= 0.1 ~ "Downregulated",
+                                TRUE ~ "Unchanged"))
+head(res.ordered)
+write.csv(res.ordered, file="D.DS.DE.genes.csv")
+
+# volcano plot
+#reset par
+pdf("Volcano.D.DS.pdf",width=7)
+par(mfrow=c(1,1))
+# Make a basic volcano plot
+with(res, plot(log2FoldChange, -log10(pvalue), pch=20, main="Volcano plot: D vs DS", xlim=c(-3,3),ylim=c(0,15)))
+# Add colored points: blue if padj<0.01, red if log2FC>1 and padj<0.05)
+with(subset(res, padj<.1 ), points(log2FoldChange, -log10(pvalue), pch=20, col="blue"))
+with(subset(res, padj<.1 & abs(log2FoldChange)>2), points(log2FoldChange, -log10(pvalue), pch=20, col="red"))
+dev.off()
+
+# Venn diagram
+
+# writing DE expressed gene names from each comparison to a list
+resDDD <- results(dds, contrast=c("condition","D","DD"))
+resDDDS <- results(dds, contrast=c("condition","DD","DS"))
+resDDS <- results(dds, contrast=c("condition","D","DS"))
+
+pval_threshold <- 0.1
+D.DD <- row.names(resSSS[which(resDDD$padj <= pval_threshold), ])
+DD.DS <- row.names(resSSSD[which(resDDDS$padj <= pval_threshold), ])
+D.DS <- row.names(resSSD[which(resDDS$padj <= pval_threshold), ])
+
+x <- list(
+  A = D.DD, 
+  B = DD.DS, 
+  C = D.DS)
+
+# helper function to display Venn diagram
+display_venn <- function(x, ...){
+  grid.newpage()
+  venn_object <- venn.diagram(x, filename = NULL, ...)
+  grid.draw(venn_object)
+}
+
+# building Venn diagram
+pdf("Venn.deep.pdf",width=7)
+display_venn(
+  x,
+  category.names = c("D vs DD" , "DD vs DS" , "D vs DS"),
+  fill = c("#999999", "#E69F02", "#56B4E9")
+)
+dev.off()
 
