@@ -50,3 +50,8 @@ awk 'NR>1' "${OUT}_INDELs_VarScores_filterPASSED_DPfilterNoCall.GT.DP.txt" | wc 
 
 ### Fst analysis
 [R_run.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/R_run.sh) runs the script [R_Fst.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/R_Fst.R) to install necessary libraries and then [Fst.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/Fst.R) to run the Fst analysis between both different depths and sites of the samples.
+
+```
+# The total number of samples: 31 
+# The total number of SNPs: 48473
+```
