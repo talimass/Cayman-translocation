@@ -43,7 +43,7 @@ INDEL_SOR_MAX=4.00
 QUAL=30.00
 
 
-# Extract variant quality scores and make diagnostic plots 
+# Extract variant quality scores and make diagnostics plots 
 gatk java-options "-Xmx64G -XX:ParallelGCThreads=8" SelectVariants \
      -R ${REF} -V  cohort_genotypes.vcf.gz -O ${OUT}.SNPs.vcf.gz \
       -select-type SNP 1> ${OUT}_SNPs.vcf.gz.log 2>&1
@@ -62,9 +62,11 @@ gatk --java-options "-Xmx64G -XX:ParallelGCThreads=8" VariantsToTable \
      --variant ${OUT}.INDELs.vcf.gz \
      --output ${OUT}_INDELs.table -F CHROM -F POS -F QUAL -F QD -F DP \
      -F MQ -F FS -F SOR -F MQRankSum -F ReadPosRankSum \
-     1> ${OUT}_INDELs.table.log 2>&1
+     1> ${OUT}_INDELs.table.log 2>&1\
+     
+# plot diagnostics plots with these results - script diagnostics.R 
 
-# 1st-pass filtering - values are chosed according to the diagnostic plots
+# 1st-pass filtering - values are chosed according to the diagnostics plots
 gatk --java-options "-Xmx64G -XX:ParallelGCThreads=8" \
         VariantFiltration --reference ${REF} --variant ${OUT}.SNPs.vcf.gz  \
         --output ${OUT}_SNPs_VarScores_filter.qd.vcf.gz \
@@ -87,9 +89,13 @@ gatk --java-options "-Xmx64G -XX:ParallelGCThreads=8" \
 
 # Check the number of PASSED after the first filtering
 zcat "${OUT}.SNPs.vcf.gz" | grep -v '^#' | wc -l
+# 4142116
 zcat "${OUT}_SNPs_VarScores_filter.qd.vcf.gz" | grep 'PASS' | wc -l
+# 2791170
 zcat "${OUT}.INDELs.vcf.gz" | grep -v '^#' | wc -l
+# 838000
 zcat "${OUT}_INDELs_VarScores_filter.qd.vcf.gz" | grep 'PASS' | wc -l
+# 622066
 
 
 # Extract only variants that PASSED filtering
@@ -97,6 +103,8 @@ zcat "${OUT}_SNPs_VarScores_filter.qd.vcf.gz" | grep -E '^#|PASS' > "${OUT}_SNPs
 gatk --java-options "-Xmx64G -XX:ParallelGCThreads=8" IndexFeatureFile --input "${OUT}_SNPs_VarScores_filterPASSED.vcf" 1> "${OUT}_SNPs_VarScores_filterPASSED.vcf.log" 2>&1
 zcat "${OUT}_INDELs_VarScores_filter.qd.vcf.gz" | grep -E '^#|PASS' > "${OUT}_INDELs_VarScores_filterPASSED.vcf"
 gatk --java-options "-Xmx64G -XX:ParallelGCThreads=8" IndexFeatureFile --input "${OUT}_INDELs_VarScores_filterPASSED.vcf" 1> "${OUT}_INDELs_VarScores_filterPASSED.vcf.log" 2>&1
+
+
 
 # Extract and plot DP info for each sample (from all samples before previous filtering; shows us overall variant coverage, independent of other factors)
 gatk VariantsToTable --reference "${REF}" --variant cohort_genotypes.vcf.gz --output "${OUT}.DP.table" -F CHROM -F POS -GF GT -GF DP 1> "${OUT}.DP.table.log" 2>&1
@@ -108,7 +116,8 @@ do
         cut -f $i,$((i+1)) "${OUT}.DP.table" | awk '$1 != "./." && $1 != ".|." {print $2}' > $GT.DP.txt
 done < <(head -n 1 "${OUT}.DP.table" | awk '{for (i=1; i<=NF; ++i) {if($i~".GT$") {print i}}}')
 
-# Make diagnostic plots and choose the apropriate DP value
+# Make diagnostic plots and choose the apropriate DP value with plot.dp.scores.sh script (Rscript plot_DP_scores.R "${OUT}.DP")
+
 DP_MIN=20.00
 
 # 2nd-pass filtering
@@ -133,7 +142,7 @@ gatk SelectVariants --reference "${REF}" --variant "${OUT}_INDELs_VarScores_filt
 	1> "${OUT}_INDELs_VarScores_filterPASSED_DPfilterNoCall.vcf.log" 2>&1
 
 
-## Check number of variants that PASSED after filtering
+## Check number of variants that PASSED after the 2nd-pass filtering
 #for F in *.GT.DP.txt; do awk 'NR>1' $F; done | wc -l
 # 430694419
 awk 'NR>1' "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.GT.DP.txt" | wc -l
@@ -158,8 +167,13 @@ do
 done < <(head -n 1 "${OUT}_INDELs_VarScores_filterPASSED_DPfilterNoCall.DP.table" | awk '{for (i=1; i<=NF; ++i) {if($i~".GT$") {print i}}}')
 
 
+# Make diagnostic plots with plot.dp.scores.sh script (Rscript plot_DP_scores.R "${OUT}.DP.afterFiltering")
+
+# 3rd-pass filtering
+
 gatk VariantsToTable --reference "${REF}" --variant "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.vcf" --output "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.table" -F CHROM -F POS -GF GT -GF AD -GF DP \
 	1> "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.table.log" 2>&1
+
 
 # Each sample has 3 columns (GT, AD, DP); get the GT column index for each sample first, extract idx - idx+2, filter using these two columns.
 while read i;
@@ -168,6 +182,7 @@ do
         cut -f $i-$((i+2)) "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.table" | awk '$1 != "./." && $1 != ".|." { if(NR==1) {print $2} else {split($2,a,","); for (i in a) {print a[i]/$3} } }' > $GT.AD.txt
 done < <(head -n 1 "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.table" | awk '{for (i=1; i<=NF; ++i) {if($i~".GT$") {print i}}}')
 
+# Make diagnostic plots with plot.dp.scores.sh script (Rscript plot_AD_scores.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD" and Rscript plot_AD_scores.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.XaxisLimits" )
 
 # Generate allelic depth plots using sum(AD) as denominator instead of DP
 while read i;
@@ -176,6 +191,7 @@ do
         cut -f $i-$((i+2)) "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.table" | awk '$1 != "./." && $1 != ".|." { if(NR==1) {print $2} else {split($2,a,","); SUM=0; for (i in a) {SUM=SUM+a[i]}; if(SUM>0){for (i in a) {print a[i]/SUM}} } }' > $GT.AD.sumSDdenominator.txt
 done < <(head -n 1 "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.table" | awk '{for (i=1; i<=NF; ++i) {if($i~".GT$") {print i}}}')
 
+# Make diagnostic plots with plot.dp.scores.sh script (Rscript plot_AD_scores.sumSDdenominator.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.sumSDdenominator" andRscript plot_AD_scores.sumSDdenominator.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.sumSDdenominator.XaxisLimits")
 
 # VCF to Table (use for phylogeny)
 gatk VariantsToTable --reference "${REF}" --variant "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.vcf"   --output "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.table"   -F CHROM -F POS -GF GT \
