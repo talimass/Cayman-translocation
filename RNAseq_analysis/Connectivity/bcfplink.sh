@@ -30,15 +30,15 @@ source /lustre1/home/mass/eskalon/miniconda/bin/activate bcftools
 REF="./Pastreoides.genome.fasta"
 OUT="GVCFall"
 
-#bcftools annotate \
-# --set-id '%CHROM\_%POS\_%REF\_%FIRST_ALT' \
-# -o GVCFall_SNPs_VarScores_filterPASSED_DPfilterNoCall.annotated.vcf \
-# --threads 8 \
-# GVCFall_SNPs_VarScores_filterPASSED_DPfilterNoCall.vcf
+bcftools annotate \
+ --set-id '%CHROM\_%POS\_%REF\_%FIRST_ALT' \
+ -o GVCFall_SNPs_VarScores_filterPASSED_DPfilterNoCall.annotated.vcf \
+ --threads 8 \
+ GVCFall_SNPs_VarScores_filterPASSED_DPfilterNoCall.vcf
 
-#plink2 --vcf GVCFall_SNPs_VarScores_filterPASSED_DPfilterNoCall.annotated.vcf \
-# --make-bed --chr-set 28 no-xy --allow-extra-chr --double-id --max-alleles 2 \
-# --out VCF_annotated
+plink2 --vcf GVCFall_SNPs_VarScores_filterPASSED_DPfilterNoCall.annotated.vcf \
+ --make-bed --chr-set 28 no-xy --allow-extra-chr --double-id --max-alleles 2 \
+ --out VCF_annotated
 
 plink2 --bfile VCF_annotated \
  --allow-extra-chr --indep-pairwise 25 0.5
