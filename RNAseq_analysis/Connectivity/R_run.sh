@@ -25,4 +25,5 @@ echo "================================"
 #########################################
 source /lustre1/home/mass/eskalon/miniconda/bin/activate r-env
 ### Below you can enter your program job command ###
+Rscript R_Fst.R
 Rscript Fst.R
