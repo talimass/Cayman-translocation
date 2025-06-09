@@ -26,6 +26,6 @@ echo "================================"
 source /lustre1/home/mass/eskalon/miniconda/bin/activate samtools
 ### Below you can enter your program job command ###
 
-#samtools faidx Pastreoides.genome.fasta
+samtools faidx Pastreoides.genome.fasta
 
 samtools dict Pastreoides.genome.fasta -o Pastreoides.genome.fasta.dict
