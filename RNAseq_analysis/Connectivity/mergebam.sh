@@ -28,7 +28,11 @@ source /lustre1/home/mass/eskalon/miniconda/bin/activate gatk2
 
 TAGs=( \
 123-CC-DD-81 \
-66-MF-DS-52 \
+117-MF-SD-44 \
+114-MF-SD-45 \
+108-CC-DD-94 \
+102-CC-DD-82 \
+100-CC-SD-73 \
 99-MF-SD-43 \
 98-MF-SS-69 \
 97-MF-SS-64 \
@@ -40,6 +44,20 @@ TAGs=( \
 78-MF-DS-54 \
 75-CC-DD-84 \
 73-CC-SS-38 \
+66-MF-DS-52 \
+63-MF-SS-60 \
+49-CC40-1b \
+48-CC10-6b \
+42-MF10-10b \
+37-CC40-8b \
+35-MF40-1b \
+32-CC10-1b \
+31-MF40-5b \
+28-CC10-9b \
+27-MF40-2b \
+25-CC40-2b \
+23-MF10-1a \
+4-MF10-4a \
 )
 
 REF="./Pastreoides.genome.fasta"
