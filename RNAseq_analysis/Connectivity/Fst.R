@@ -66,61 +66,6 @@ head(round(pc.percent, 2))
 snpset <- read.gdsn(index.gdsn(genofile, "snp.chromosome"))
 table(snpset)
 
-#snp_ids <- read.gdsn(index.gdsn(genofile, "snp.id"))
-
-#fst <- snpgdsFst(genofile,
-#                 sample.id = sample.id,
-#                 population = as.factor(pop_code),
-#                 snp.id = snp_ids,
-#                 method = "W&C84")
-
-#names(fst)
-
-#pair_fst <- snpgdsFst(genofile,
-#                      sample.id = sample.id,
-#                      population = as.factor(pop_code),
-#                      method = "W&C84",
-#                      pairwise = TRUE)
-#pair_fst$Fst
-
-
-#library(SNPRelate)
-
-# Function to compute pairwise Fst
-#compute_pairwise_fst <- function(genofile, sample_ids, pop_codes, snp_ids = NULL) {
-#  pops <- unique(pop_codes)
-#  pairwise_fst_matrix <- matrix(NA, nrow=length(pops), ncol=length(pops),
-#                                dimnames=list(pops, pops))
-#   
-#   for (i in 1:(length(pops)-1)) {
-#     for (j in (i+1):length(pops)) {
-#       pop1 <- pops[i]
-#       pop2 <- pops[j]
-#       
-#       sel <- pop_codes %in% c(pop1, pop2)
-#       fst <- snpgdsFst(genofile,
-#                        sample.id = sample_ids[sel],
-#                        population = as.factor(pop_codes[sel]),
-#                        snp.id = snp_ids,
-#                        method = "W&C84")
-#       
-#       pairwise_fst_matrix[pop1, pop2] <- fst$MeanFst
-#       pairwise_fst_matrix[pop2, pop1] <- fst$MeanFst
-#     }
-#   }
-#   
-# 
-#   diag(pairwise_fst_matrix) <- 0
-#   return(pairwise_fst_matrix)
-# }
-# 
-# 
-# pairwise_fst <- compute_pairwise_fst(genofile, sample.id, pop_code, snp_ids)
-# connected <- pairwise_fst <= 0.05
-# 
-# library(pheatmap)
-# pheatmap(pairwise_fst, clustering_distance_rows = "euclidean")
-########## Fst  Estimation
 
 x2<-2-snpgdsGetGeno(genofile) #snpgdsVCF2GDS stores the number of reference alleles, we want the the number of alternate alleles
 #[1] Genotype matrix: 31 samples X 48473 SNPs
