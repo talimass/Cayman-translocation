@@ -28,11 +28,11 @@ source /lustre1/home/mass/eskalon/miniconda/bin/activate r-env
 DP_MIN=20.000
 OUT="GVCFall"
 
-#Rscript plot_DP_scores.R "${OUT}.DP" $DP_MIN 100 1> "${OUT}.DP.log" 2>&1
-#Rscript plot_DP_scores.R "${OUT}.DP.afterFiltering" $DP_MIN 100 1> "${OUT}.DP.afterFiltering.log" 2>&1
+Rscript plot_DP_scores.R "${OUT}.DP" $DP_MIN 100 1> "${OUT}.DP.log" 2>&1
+Rscript plot_DP_scores.R "${OUT}.DP.afterFiltering" $DP_MIN 100 1> "${OUT}.DP.afterFiltering.log" 2>&1
 
-#Rscript plot_AD_scores.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD" 0.0 1.0 1> "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.log" 2>&1
-#Rscript plot_AD_scores.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.XaxisLimits" 0.1 0.9 1> "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.XaxisLimits.log" 2>&1
+Rscript plot_AD_scores.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD" 0.0 1.0 1> "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.log" 2>&1
+Rscript plot_AD_scores.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.XaxisLimits" 0.1 0.9 1> "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.XaxisLimits.log" 2>&1
 
 Rscript plot_AD_scores.sumSDdenominator.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.sumSDdenominator" 0.0 1.0 1> "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.sumSDdenominator.log" 2>&1
 Rscript plot_AD_scores.sumSDdenominator.R "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.sumSDdenominator.XaxisLimits" 0.1 0.9 1> "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.AD.sumSDdenominator.XaxisLimits.log" 2>&1
