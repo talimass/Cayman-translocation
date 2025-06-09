@@ -21,4 +21,32 @@ GATK4 pipeline was installed on the remote cluster through conda using this [gui
 ### Combine *.g.vcf.gz files and call genotypes
 [combinegvcf.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/combinegvcf.sh) combines all gvcf files to a cohort file, [genotypegvcf.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/genotypegvcf.sh) performs joint genotyping on a cohort. 
 
-### Filter SNPs and Indels
+### Filter SNPs and indels
+[filtvar.sh]() firstly selects SNPs and indels and extracts variant quality scores for making diagnostics plots with [diagnostics.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/diagnostics.R), then performs 1st-pass filtering of variants with the parameters chosen according to the diagnostics plots, then performs 2nd and 3rd-pass filtering with the parameters chosen according to the diagnostics plots drawn by [plot.dp.scores.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/plot.dp.scores.sh) script.   
+
+Number of variants passed:
+```
+# Check the number of PASSED after the first filtering
+zcat "${OUT}.SNPs.vcf.gz" | grep -v '^#' | wc -l
+# 4142116
+zcat "${OUT}_SNPs_VarScores_filter.qd.vcf.gz" | grep 'PASS' | wc -l
+# 2791170
+zcat "${OUT}.INDELs.vcf.gz" | grep -v '^#' | wc -l
+# 838000
+zcat "${OUT}_INDELs_VarScores_filter.qd.vcf.gz" | grep 'PASS' | wc -l
+# 622066
+```
+```
+## Check number of variants that PASSED after the 2nd-pass filtering
+#for F in *.GT.DP.txt; do awk 'NR>1' $F; done | wc -l
+# 430694419
+awk 'NR>1' "${OUT}_SNPs_VarScores_filterPASSED_DPfilterNoCall.GT.DP.txt" | wc -l
+# 69361
+awk 'NR>1' "${OUT}_INDELs_VarScores_filterPASSED_DPfilterNoCall.GT.DP.txt" | wc -l
+# 4995
+```
+### Filter for linkage disequilibrium
+[bcfplink.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/bcfplink.sh) performs pruning of SNPs that are strongly genetically linked and extracts these SNPs from the vcf file.
+
+### Fst analysis
+[R_run.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/R_run.sh) runs the script [R_Fst.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/R_Fst.R) to install necessary libraries and then [Fst.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/Fst.R) to run the Fst analysis between both different depths and sites of the samples.
