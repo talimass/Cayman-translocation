@@ -1,0 +1,32 @@
+id,condition,replicate,RIN,site,origin,batch,ind.n,group,translocation,month,RIN2,rRNA
+100-CC-SD-73,SD,rep1,5.3,CC,17,1,7,S,T,Jul,3,2
+102-CC-DD-82,DD,rep1,6.4,CC,7,1,7,D,C ,Jul,2,2
+108-CC-DD-94,DD,rep2,8.7,CC,8,1,8,D,C ,Jul,1,3
+114-MF-SD-45,SD,rep2,7.8,MF,15,1,5,S,T,Jul,2,1
+117-MF-SD-44,SD,rep3,7,MF,18,1,8,S,T,Jul,2,1
+123-CC-DD-81,DD,rep3,7.6,CC,6,1,6,D,C ,Jul,2,1
+23-MF10-1a,S,rep1,7,MF,11,1,1,S,C ,Nov,2,2
+25-CC40-2b,D,rep6,8.2,CC,6,1,6,D,C ,Nov,1,1
+27-MF40-2b,D,rep1,6.6,MF,1,1,1,D,C ,Nov,2,3
+28-CC10-9b,S,rep2,8.3,CC,12,1,2,S,C ,Nov,1,3
+31-MF40-5b,D,rep2,7.6,MF,2,1,2,D,C ,Nov,2,4
+32-CC10-1b,S,rep3,7.8,CC,13,1,3,S,C ,Nov,2,4
+35-MF40-1b,D,rep3,8.7,MF,3,1,3,D,C ,Nov,1,2
+37-CC40-8b,D,rep4,8.3,CC,4,1,4,D,C ,Nov,1,3
+4-MF10-4a,S,rep4,7.5,MF,14,1,4,S,C ,Nov,2,3
+42-MF10-10b,S,rep5,8.5,MF,15,1,5,S,C ,Nov,1,1
+48-CC10-6b,S,rep6,7,CC,16,1,6,S,C ,Nov,2,4
+49-CC40-1b,D,rep5,8.3,CC,5,1,5,D,C ,Nov,1,3
+63-MF-SS-60,SS,rep1,7.6,MF,19,1,9,S,C ,Jul,2,1
+66-MF-DS-52,DS,rep1,6.1,MF,10,1,10,D,T,Jul,2,4
+73-CC-SS-38,SS,rep2,7.7,CC,12,1,2,S,C ,Jul,2,4
+75-CC-DD-84,DD,rep4,5.6,CC,9,1,9,D,C ,Jul,3,1
+78-MF-DS-54,DS,rep2,6.1,MF,2,1,2,D,T,Jul,2,3
+80-1-CC-DS-86,DS,rep3,8.2,CC,6,2,6,D,T,Jul,1,1
+81-CC-DS-87,DS,rep4,7.4,CC,7,1,7,D,T,Jul,2,3
+84-CC-DD-80,DD,rep5,8,CC,5,1,5,D,C ,Jul,1,3
+91-CC-DS-89,DS,rep5,6.3,CC,9,1,9,D,T,Jul,2,4
+94-CC-SS-37,SS,rep3,5.1,CC,20,1,10,S,C ,Jul,3,3
+97-MF-SS-64,SS,rep4,7.3,MF,15,1,5,S,C ,Jul,2,2
+98-MF-SS-69,SS,rep5,7.6,MF,18,1,8,S,C ,Jul,2,3
+99-MF-SD-43,SD,rep4,4.1,MF,14,1,4,S,T,Jul,3,1
