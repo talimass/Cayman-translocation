@@ -157,10 +157,6 @@ physio$chl.surf.t <- (physio$chl.surf^best_lambda - 1) / best_lambda
 shapiro.test((physio$chl.surf.t)) # normal
 leveneTest((chl.surf.t)~Treatment,d=physio) #heteroscedascisity
 
-# welch anova 
-oneway.test(data = physio, chl.surf.t ~ Treatment, var.equal = FALSE)
-# not signif
-
 # kruscal
 # Kruskal-Wallis test for nonparametric data
 kruskal.test(chl.surf ~ Treatment, data = physio) #  not significant
@@ -232,7 +228,7 @@ oneway.test(data = fire, Sigma ~ Treatment, var.equal = TRUE)
 games_results <- games_howell_test(fire, Sigma ~ Treatment, conf.level = 0.95, detailed = FALSE)
 
 games_results$comparison <- paste0(games_results$group1,'-',games_results$group2)
-# Step 2: Prepare pairwise p-values matrix
+# preparing pairwise p-values matrix
 p_matrix <- games_results$p.adj.signif<0.05
 names(p_matrix) <- games_results$comparison
 # assigning letters to groups ("compact letter display")
@@ -359,7 +355,7 @@ oneway.test(data = fire, p ~ Treatment, var.equal = TRUE)
 games_results <- games_howell_test(fire, p ~ Treatment, conf.level = 0.95, detailed = FALSE)
 
 games_results$comparison <- paste0(games_results$group1,'-',games_results$group2)
-# Step 2: Prepare pairwise p-values matrix
+# preparing pairwise p-values matrix
 p_matrix <- games_results$p.adj.signif<0.05
 names(p_matrix) <- games_results$comparison
 # assigning letters to groups ("compact letter display")
@@ -536,3 +532,67 @@ s <- ggplot(plot_data, aes(x = Treatment, y = Percent, fill = Status)) +
 s
 ggsave("survival.jpg", s, width = 6, height = 6)
 
+save.image(file='physio4.RData')
+
+#### growth ####
+
+growth <- read.csv('../Alizarin-mark/growth.csv', stringsAsFactors = F)
+str(growth)
+growth$condition = factor(growth$condition, levels = c("SS", "SD", "DD", "DS"))
+View(growth)
+
+growthplot <- ggplot(growth, aes(y = size, x = condition)) +
+  geom_boxplot(outlier.shape = NA, aes(fill = condition), fatten = 0.5, alpha = 0.7, lwd = 0.4)+
+  labs(y= 'growth mm')+
+  geom_jitter(position = position_jitter(width = .25), size = 0.5) +
+  mytheme +
+  guides(fill = FALSE)+
+  scale_y_continuous(limits = c(1.3,3.3))+ 
+  scale_x_discrete(labels = c("10→10", "10→40", "40→40", "40→10" ))
+growthplot
+
+ggsave("growth3.jpg", growthplot,  width = 6, height = 6)
+
+shapiro.test(sqrt(growth$size)) # data is normal (p.value < 0.5)
+leveneTest(sqrt(size)~condition,d=growth)  # heteroscedasticity of variance (p.value < 0.5)
+
+# performing anova + Tukey post-hoc 
+growth <- na.omit(growth)
+model <- lm(data = growth, sqrt(size) ~ condition)
+# checking summary and plots
+summary(model)
+#plot(model) # Q-Q plots - checking for heteroscedasticity of residuals - look very good
+# data is ok for anova
+anova(model)
+
+# posthoc test - pairwise comparisons (Tukey test)
+posthoc <- TukeyHSD(aov(model))
+posthoc$condition # the table of pairwise comparisons
+# assigning letters to groups ("compact letter display")
+letters <- multcompLetters4(aov(model), posthoc) 
+# creating df of letters and their positions to add them to the plot
+letters.df <- data.frame(letters$condition$Letters)
+colnames(letters.df)[1] <- "Letter" 
+letters.df$condition <- rownames(letters.df) 
+placement <- growth %>% 
+  group_by(condition) %>%
+  summarise(quantile(size)[4])
+colnames(placement)[2] <- "Placement.Value"
+letters.df <- left_join(letters.df, placement)
+
+# boxplot with letters
+# groups with the same letter are not significantly different
+# groups that are significantly different get different letters
+growthplot <- ggplot(growth, aes(y = (size), x = condition)) +
+  geom_boxplot(outlier.shape = NA, aes(fill = condition), fatten = 0.5, alpha = 0.7, lwd = 0.4)+
+  labs(y= "mm", title = "Skeletal growth")+
+  mytheme +
+  geom_jitter(position = position_jitter(width = .25), size = 0.5) +
+  guides(fill = FALSE)+
+  scale_x_discrete(labels = c("10→10", "10→40", "40→40", "40→10" ))+
+  geom_boxplot(outlier.size = 0.5, aes(fill = condition), fatten = 0.5, alpha = 0.7, lwd = 0.4)  + 
+  geom_text(data = letters.df, aes(x = condition, y = Placement.Value, label = Letter),
+            size = 3, color = "black", hjust = -1.25, vjust = -0.8, fontface = "italic")
+
+growthplot
+ggsave("growth3.jpg", growthplot,  width = 6, height = 6)
