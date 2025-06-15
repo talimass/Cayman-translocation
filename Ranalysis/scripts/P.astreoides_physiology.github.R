@@ -43,8 +43,8 @@ print(adonis_result)
 
 #### Protein.cm ####
 # checking for normality and homoscedasticity
-shapiro.test(physio$Protein.conc.ug.ml)  # data is not normal (p.value < 0.5)
-leveneTest(Protein.conc.ug.ml~Treatment, d=physio) # heteroscedasticity of variance (p.value < 0.5)
+shapiro.test(physio$Protein.conc.ug.ml)  # data is not normal (p.value < 0.05)
+leveneTest(Protein.conc.ug.ml~Treatment, d=physio) # heteroscedasticity of variance (p.value < 0.05)
 
 #  transforming the data
 shapiro.test(sqrt(physio$Protein.conc.ug.ml)) # data is normal after sqrt transformation
@@ -261,8 +261,8 @@ sigma
 
 # checking for normality and homoscedasticity
 
-shapiro.test((fire$Fv.Fm))  # data is not normal (p.value < 0.5)
-leveneTest(Fv.Fm~Treatment, d=fire) # heteroscedasticity of variance (p.value < 0.5)
+shapiro.test((fire$Fv.Fm))  # data is not normal (p.value < 0.05)
+leveneTest(Fv.Fm~Treatment, d=fire) # heteroscedasticity of variance (p.value < 0.05)
 
 # Kruskal-Wallis test for nonparametric data
 kruskal.test(Fv.Fm ~ Treatment, data = fire) #  significant
@@ -303,8 +303,8 @@ FvFm
 
 #### Maximum photosynthetic rate ####
 # checking for normality and homoscedasticity
-shapiro.test((fire$Pmax.e.s))  # data is not normal (p.value < 0.5)
-leveneTest(Pmax.e.s~Treatment, d=fire) # heteroscedasticity of variance (p.value < 0.5)
+shapiro.test((fire$Pmax.e.s))  # data is not normal (p.value < 0.05)
+leveneTest(Pmax.e.s~Treatment, d=fire) # heteroscedasticity of variance (p.value < 0.05)
 
 kruskal.test(Pmax.e.s ~ Treatment, data = fire) #  significant
 
@@ -345,8 +345,8 @@ Pmax
 
 #### connectivity parameter ####
 # checking for normality and homoscedasticity
-shapiro.test((fire$p))  # data is not normal (p.value < 0.5)
-leveneTest(p~Treatment, d=fire) # heterosced
+shapiro.test((fire$p))  # data is normal (p.value > 0.05)
+leveneTest(p~Treatment, d=fire) # heteroscedasticity
 
 # welch anova
 oneway.test(data = fire, p ~ Treatment, var.equal = TRUE)
@@ -533,7 +533,7 @@ s
 ggsave("survival.jpg", s, width = 6, height = 6)
 
 save.image(file='physio4.RData')
-
+load('physio4.RData')
 #### growth ####
 
 growth <- read.csv('../Alizarin-mark/growth.csv', stringsAsFactors = F)
@@ -553,14 +553,15 @@ growthplot
 
 ggsave("growth3.jpg", growthplot,  width = 6, height = 6)
 
-shapiro.test(sqrt(growth$size)) # data is normal (p.value < 0.5)
-leveneTest(sqrt(size)~condition,d=growth)  # heteroscedasticity of variance (p.value < 0.5)
+shapiro.test(sqrt(growth$size)) # data is normal (p.value > 0.05)
+leveneTest(sqrt(size)~condition,d=growth)  # no heteroscedasticity of variance (p.value > 0.05)
 
 # performing anova + Tukey post-hoc 
 growth <- na.omit(growth)
 model <- lm(data = growth, sqrt(size) ~ condition)
 # checking summary and plots
 summary(model)
+
 #plot(model) # Q-Q plots - checking for heteroscedasticity of residuals - look very good
 # data is ok for anova
 anova(model)
@@ -596,3 +597,61 @@ growthplot <- ggplot(growth, aes(y = (size), x = condition)) +
 
 growthplot
 ggsave("growth3.jpg", growthplot,  width = 6, height = 6)
+
+
+#### NMDS with growth (only for July) ####
+names(growth) <- c("size", "coral.number", "Treatment", "Coral")
+physio.growth <- left_join(joined_df, growth)
+
+physio.growth  %>%
+  drop_na() %>%
+  dplyr::select(Treatment, Protein.conc.ug.ml, cell.cm, chl.surf, Fv.Fm, Sigma, Pmax.e.s, p, size)  -> nmds.physio
+str(nmds.physio)
+
+# Remove non-numeric columns (e.g., Sample, Treatment)
+param_data <- nmds.physio[, -which(colnames(nmds.physio) %in% c("Treatment"))]
+
+# Compute Bray-Curtis distance
+bray_dist <- vegdist(param_data, method = "bray")
+
+# Check distance matrix
+as.matrix(bray_dist)
+# Run NMDS with 2 dimensions (k=2)
+nmds_result <- metaMDS(bray_dist, k = 2, trymax = 100)
+
+# Check NMDS stress value (should be < 0.2 for a good fit)
+nmds_result$stress
+stress_value <- round(nmds_result$stress, 3) 
+# Convert NMDS results to a dataframe
+nmds_df <- as.data.frame(nmds_result$points)
+
+# Add Treatment information
+nmds_df$Treatment <- nmds.physio$Treatment
+nmds_df$Treatment <- nmds.physio$Treatment
+# Check final NMDS data
+head(nmds_df)
+
+# Fit environmental vectors (parameter influence)
+env_fit <- envfit(nmds_result, param_data, perm = 999)
+
+# Extract arrow coordinates
+vectors <- as.data.frame(scores(env_fit, "vectors"))
+vectors$Parameter <- rownames(vectors)  # Add parameter names
+vectors$R2 <- round(env_fit$vectors$r, 2)  
+
+nmdsp <-ggplot(nmds_df, aes(x = MDS1, y = MDS2, color = Treatment)) +
+  geom_point(size = 1) +                        # Sample points
+  stat_ellipse(level = 0.95) +                  # Confidence ellipses
+  geom_segment(data = vectors, aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2), 
+               arrow = arrow(length = unit(0.2, "cm")), 
+               color = "black") +               # Vectors (arrows)
+  geom_text(data = vectors, aes(x = NMDS1, y = NMDS2, label = Parameter), 
+            vjust = -0.5, hjust = 0.5, color = "black", size = 3) +  
+  annotate("text", x = min(nmds_result$points[,1]), y = min(nmds_result$points[,2]), 
+           label = paste("Stress =", stress_value), size = 3, hjust = -2, color = "red") +
+  scale_color_hue(labels = c("10→10","10→40",
+                             "40→40", "40→10"))+
+  theme_minimal() +
+  labs(title = "NMDS of physiological parameters (including growth)", x = "NMDS1", y = "NMDS2")
+nmdsp
+ggsave("nmds.july.growth.jpg", nmdsp, width = 6, height = 6)
