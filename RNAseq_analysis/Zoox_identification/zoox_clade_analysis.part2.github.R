@@ -94,3 +94,74 @@ hm1 = ggplot(data = mlt2, mapping = aes(x = variable, y = species, fill = value)
 print(hm1)
 dev.off()
 
+
+# the number of aligned reads
+nofreads <- as.data.frame(colSums(speciesFreq2[,-1]))
+write.csv(nofreads,file=paste0(outidx,"Nofalignedreads.csv"), row.names=TRUE)
+
+# similarity indexes
+design.ord <- t_design[order(t_design$sample),]
+design.ord$depth = factor(design.ord$depth,levels=design_factor_levels)
+design.ord$site = factor(design.ord$site,levels=c("CC", "MF"))
+design.ord <- subset(design.ord, select = -c(sample,group) )
+
+rownames(prop_table) <- prop_table$species
+prop_table.bray <- t(prop_table[,-1])
+bray_curtis <- vegdist(prop_table.bray, method = "bray")
+pcoa_result <- cmdscale(bray_curtis, k = 2, eig = TRUE)
+
+# Convert to a data frame for plotting
+pcoa_df <- data.frame(Sample = rownames(prop_table.bray), 
+                      Axis1 = pcoa_result$points[,1], 
+                      Axis2 = pcoa_result$points[,2])
+
+# Plot PCoA
+ggplot(pcoa_df, aes(x = Axis1, y = Axis2, label = Sample)) +
+  geom_point(size = 3) +
+  geom_text(vjust = -1) +
+  theme_minimal() +
+  labs(x = "PCoA Axis 1", y = "PCoA Axis 2", title = "PCoA - Bray-Curtis Dissimilarity")
+
+rownames(t_design) <- t_design$sample
+t_design$origin <- factor(t_design$origin)
+t_design$depth <- factor(t_design$depth)
+
+adonis2(bray_curtis ~ depth, data = t_design, permutations = 10000)
+adonis2(bray_curtis ~ site * depth, data = t_design, permutations = 10000)
+# both are not significant
+
+# groups have equal dispersion, valid permanova results
+dispersion <- betadisper(bray_curtis, t_design$depth)
+permutest(dispersion)
+dispersion <- betadisper(bray_curtis, t_design$site)
+permutest(dispersion)
+
+# pairwise adonis
+pairwise.adonis(bray_curtis, t_design$depth, perm = 999)
+# not significant
+
+# compare group distances
+# convert distance matrix to long dataframe
+dist_df <- as.data.frame(as.table(as.matrix(bray_curtis)))
+colnames(dist_df) <- c("Sample1", "Sample2", "Distance")
+
+# add group info to each sample
+dist_df <- dist_df %>%
+  left_join(t_design %>% dplyr::select(Sample1 = sample, Depth1 = depth), by = "Sample1") %>%
+  left_join(t_design %>% dplyr::select(Sample2 = sample, Depth2 = depth), by = "Sample2") %>%
+  filter(Sample1 != Sample2) # remove self-comparisons
+
+# tag comparisons as 'within' or 'between'
+dist_df <- dist_df %>%
+  mutate(Comparison = ifelse(Depth1 == Depth2, "Within", "Between"))
+
+# compare the distances
+wilcox.test(Distance ~ Comparison, data = dist_df)
+
+simil <- ggplot(dist_df, aes(x = Comparison, y = Distance, fill = Comparison)) +
+  geom_boxplot(alpha = 0.6) +
+  theme_minimal() +
+  annotate("text", x=2, y=0.8, label= "wilcox.test p.value=0.25", size=3) + 
+  labs(title = "Within vs Between Group Dissimilarity", y = "Bray-Curtis Distance")
+simil
+ggsave("symb.bray.jpg", simil, width = 6, height = 6)  
