@@ -1,6 +1,5 @@
 ## Fixation index (Fst) estimation by RNA-seq SNPs analysis of _P. astreoides_ samples 
-
-This script is based on the pipeline for SNP analysis of [Coral_Stress_Phenome](https://github.com/hputnam/Coral_Stress_Phenome/tree/main/Genotype_Analysis/Pocillopora_acuta_PacBio_Assembly/RNAseq_short_variant_analysis) project and on the work of [Federica Scuccia](https://github.com/fscucchia/Pastreoides_development_depth/tree/main/SNPs), with some modifications.
+Bash scripts are based on the pipeline for SNP analysis of [Coral_Stress_Phenome](https://github.com/hputnam/Coral_Stress_Phenome/tree/main/Genotype_Analysis/Pocillopora_acuta_PacBio_Assembly/RNAseq_short_variant_analysis) project and on the work of [Federica Scuccia](https://github.com/fscucchia/Pastreoides_development_depth/tree/main/SNPs), with some modifications.
 
 ### Programs
 GATK4 pipeline was installed on the remote cluster through conda using this [guide](https://gatk.broadinstitute.org/hc/en-us/articles/360035889851--How-to-Install-and-use-Conda-for-GATK4). PLINK2 and bcftools were also installed via conda. rgsam was installed through [github](https://github.com/djhshih/rgsam), and then the Makefile was manually changed to ensure installation to the local home bin folder.
@@ -49,7 +48,7 @@ awk 'NR>1' "${OUT}_INDELs_VarScores_filterPASSED_DPfilterNoCall.GT.DP.txt" | wc 
 [bcfplink.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/bcfplink.sh) performs pruning of SNPs that are strongly genetically linked and extracts these SNPs from the vcf file.
 
 ### Fst analysis
-[R_run.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/R_run.sh) runs the script [R_Fst.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/R_Fst.R) to install necessary libraries and then [Fst.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/Fst.R) to run the Fst analysis between both different depths and sites of the samples.
+[R_run.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/R_run.sh) runs the script [R_Fst.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/R_Fst.R) to install necessary libraries and then [Fst.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/Fst.R) to run the Fst analysis between both different depths and sites of the samples. 95% confidence intervals for pairwise Fst were estimated empirically via 1,000 bootstrap replicates. 
 
 ```
 # The total number of samples: 31 
