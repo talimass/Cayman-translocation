@@ -1,0 +1,15 @@
+gene id,gene name,gene,S_D,SS_DD,DD_SD,SS_DS,DD_DS,SS_SD,S_SS,D_DD
+g5540,Kielin/chordin llke,Pastreoides54182,Down,0,0,0,0,0,0,0
+g5540,Kielin/chordin llke,Pastreoides54183,Down,0,0,0,0,0,0,0
+"aug_v2a.02662.t1,aug_v2a.02663.t1",USOMP-1b,Pastreoides33458,Down,Down,0,Down,0,0,Down,0
+XP_022794351.1,mammalian ependymin-related protein 1-like [Stylophora pistillata],Pastreoides61619,Up,Up,0,Up,0,0,0,0
+JR993827.1,fibronectin type III domain-containing protein-like,Pastreoides10315,0,Down,0,Down,0,0,0,0
+XP_022783323.1,USOMP12 (phosphopantothenoylcysteine decarboxylase subunit VHS3-like),Pastreoides43680,0,Down,0,0,0,0,0,0
+XP_022783415.1,Coadhesin,Pastreoides23843,0,0,Down,0,0,Down,0,0
+"JT019463.1,XP_022788227.1",Hephaestin-like protein,Pastreoides55346,0,0,Up,0,0,Up,0,0
+g9861,protein MLP1-like (viral-inclusion),Pastreoides17274,0,0,Up,0,0,Up,0,0
+aug_v2a.00002.t1,EP-like 2,Pastreoides25046,0,0,Up,0,0,0,0,0
+JR993827.1,fibronectin type III domain-containing protein-like,Pastreoides58854,0,0,0,Down,0,0,0,0
+"JT001945.1,aug_v2a.11068.t1",Skeletal acidic Asp-rich Protein 1 (SAARP 1),Pastreoides09576,0,0,0,Up,0,0,0,0
+XP_022789932.1,MAGUK p55 subfamily member 7-like [Stylophora pistillata],Pastreoides05813,0,0,0,0,0,Up,0,0
+g9094,Actin,Pastreoides02268,0,0,0,0,0,Up,0,0
