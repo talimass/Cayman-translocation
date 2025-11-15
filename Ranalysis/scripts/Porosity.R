@@ -3,7 +3,7 @@ library(ggplot2)
 library(dplyr)
 
 # Read the CSV
-data <- read.csv("/Users/talimass/Documents/Documents - MacBook Pro/GitHub/Cayman-translocation/microCT/Porosity_bone j.csv")
+data <- read.csv("/Users/talimass/Documents/Documents - MacBook Pro/GitHub/Cayman-translocation/microCT/Porosity_python_2025.csv")
 names(data) <- trimws(names(data))  # Clean column names
 
 # Clean column names (remove trailing spaces)
@@ -16,8 +16,8 @@ data$treatment <- sub(".*_", "", data$sample)
 summary_data <- data %>%
   group_by(treatment) %>%
   summarise(
-    mean_porosity = mean(porosity, na.rm = TRUE),
-    sem_porosity = sd(porosity, na.rm = TRUE) / sqrt(n())
+    mean_porosity = mean(total_porosity_perc, na.rm = TRUE),
+    sem_porosity = sd(total_porosity_perc, na.rm = TRUE) / sqrt(n())
   )
 
 # Plot
@@ -40,7 +40,7 @@ ggsave(filename = file.path(output_path, "Average_Porosity_by_Treatment.pdf"),
        porosity_plot, width = 8, height = 6)
 
 # Run ANOVA
-anova_result <- aov(porosity ~ treatment, data = data)
+anova_result <- aov(total_porosity_perc ~ treatment, data = data)
 
 # Define path to save the ANOVA results
 anova_output_path <- file.path(output_path, "anova_results.txt")
