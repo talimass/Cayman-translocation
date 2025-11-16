@@ -27,7 +27,7 @@ porosity_plot <- ggplot(summary_data, aes(x = treatment, y = mean_porosity)) +
                 width = 0.2) +
   labs(title = "Average Porosity by Treatment",
        x = "Treatment",
-       y = "Porosity (mean ± SEM)") +
+       y = "Porosity% (mean ± SEM)") +
   theme_minimal()
 
 # Define output path
