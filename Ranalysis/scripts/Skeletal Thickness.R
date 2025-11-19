@@ -8,12 +8,12 @@ df <- read.csv("/Users/talimass/Documents/Documents - MacBook Pro/GitHub/Cayman-
 data_long <- df %>%
   pivot_longer(-slice, names_to = "Sample", values_to = "Thickness") %>%
   mutate(
-    Treatment = sapply(strsplit(Sample, "_"), function(x) x[2])
-  )
+    Treatment = sapply(strsplit(Sample, "_"), function(x) x[2]),
+    um = slice * 15)  # Convert slice to microns
 
 # Compute mean and SEM per slice per treatment
 summary_df <- data_long %>%
-  group_by(slice, Treatment) %>%
+  group_by(slice, um, Treatment) %>%
   summarise(
     Mean_Thickness = mean(Thickness, na.rm = TRUE),
     SD = sd(Thickness, na.rm = TRUE),
@@ -23,24 +23,24 @@ summary_df <- data_long %>%
   )
 
 # Plot WITHOUT error bars
-plot_no_error <- ggplot(summary_df, aes(x = slice, y = Mean_Thickness, color = Treatment)) +
+plot_no_error <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Treatment)) +
   geom_point(alpha = 0.6) +
   theme_minimal() +
   labs(title = "Skeletal Thickness by Slice and Treatment (No Error Bars)",
-       x = "Slice",
+       x = "Depth (µm)",
        y = "Skeletal Thickness ( µm)") +
   scale_color_brewer(palette = "Set2") +
   theme(legend.title = element_text(size = 10),
         legend.text = element_text(size = 9))
 
 # Plot WITH SEM error bars
-plot_with_sem <- ggplot(summary_df, aes(x = slice, y = Mean_Thickness, color = Treatment)) +
+plot_with_sem <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Treatment)) +
   geom_point(alpha = 0.6) +
   geom_errorbar(aes(ymin = Mean_Thickness - SEM, ymax = Mean_Thickness + SEM),
                 width = 0.5, alpha = 0.5) +
   theme_minimal() +
   labs(title = "Skeletal Thickness by Slice and Treatment (With SEM)",
-       x = "Slice",
+       x = "Depth (µm)",
        y = "Skeletal Thickness ( µm)") +
   scale_color_brewer(palette = "Set2") +
   theme(legend.title = element_text(size = 10),
