@@ -1,0 +1,18 @@
+name: coral_morpho_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy=1.23
+  - scikit-image=0.20.0
+  - pandas
+  - matplotlib
+  - porespy
+  - tk
+  - openpyxl
+  - pip
+  - pip:
+    - numpy==1.23
+    - scikit-image==0.20.0
+    - -r requirements.txt
