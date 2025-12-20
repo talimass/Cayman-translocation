@@ -32,7 +32,35 @@ plot_no_error <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Trea
   scale_color_brewer(palette = "Set2") +
   theme(legend.title = element_text(size = 10),
         legend.text = element_text(size = 9))
+-------------------------------------------------------------------
+# flip X and Y plot without error bar
 
+  plot_no_error <- ggplot(summary_df,
+                          aes(x = Mean_Thickness, y = um, color = Treatment)) +
+  geom_point(alpha = 0.6) +
+  
+  geom_hline(yintercept = 1500,
+             color = "black",
+             linetype = "dashed",
+             linewidth = 0.8) +
+  
+  scale_y_reverse() +
+  theme_minimal() +
+  labs(
+    title = NULL,
+    x = "Skeletal Thickness (µm)",
+    y = "Depth (µm)"
+  ) +
+  scale_color_brewer(palette = "Set2") +
+  theme(
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9)
+  )
+
+
+
+        
+-------------------------------------------------------------------        
 # Plot WITH SEM error bars
 plot_with_sem <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Treatment)) +
   geom_point(alpha = 0.6) +
