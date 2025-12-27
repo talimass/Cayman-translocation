@@ -64,15 +64,65 @@ plot_no_error <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Trea
 # Plot WITH SEM error bars
 plot_with_sem <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Treatment)) +
   geom_point(alpha = 0.6) +
-  geom_errorbar(aes(ymin = Mean_Thickness - SEM, ymax = Mean_Thickness + SEM),
-                width = 0.5, alpha = 0.5) +
-  theme_minimal() +
+  
+  geom_hline(yintercept = 1500,
+             color = "black",
+             linetype = "dashed",
+             linewidth = 0.8) +
+  
+  geom_errorbar(aes(xmin = Mean_Thickness - SEM, xmax = Mean_Thickness + SEM),
+                width = 0.5, alpha = 0.5) + 
+ theme_minimal() +
   labs(title = "Skeletal Thickness by Slice and Treatment (With SEM)",
-       x = "Depth (µm)",
-       y = "Skeletal Thickness ( µm)") +
+      x = "Depth (µm)",
+      y = "Skeletal Thickness ( µm)") +
   scale_color_brewer(palette = "Set2") +
   theme(legend.title = element_text(size = 10),
         legend.text = element_text(size = 9))
+
+-----------------------------------------------
+  
+  # flip X and Y plot with error bar
+  plot_with_sem <- ggplot(
+    summary_df,
+    aes(x = Mean_Thickness, y = um, color = Treatment)
+  ) +
+  geom_point(alpha = 0.6) +
+  
+  # SEM as HORIZONTAL error bars
+  geom_errorbarh(
+    aes(xmin = Mean_Thickness - SEM,
+        xmax = Mean_Thickness + SEM),
+    height = 0.5,
+    alpha = 0.5
+  ) +
+  
+  # horizontal reference line at 1500 µm depth
+  geom_hline(
+    yintercept = 1500,
+    color = "black",
+    linetype = "dashed",
+    linewidth = 0.8
+  ) +
+  
+  #  depth increases downward
+  scale_y_reverse() +
+  
+  theme_minimal() +
+  labs(
+    title = NULL,
+    x = "Skeletal Thickness (µm)",
+    y = "Depth (µm)"
+  ) +
+  scale_color_brewer(palette = "Set2") +
+  theme(
+    legend.title = element_text(size = 10),
+    legend.text  = element_text(size = 9)
+  )
+
+  
+
+
 
 # Define output directory
 output_path <- "/Users/talimass/Documents/Documents - MacBook Pro/GitHub/Cayman-translocation/Ranalysis/output"
