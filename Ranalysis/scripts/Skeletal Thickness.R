@@ -39,7 +39,7 @@ plot_no_error <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Trea
                           aes(x = Mean_Thickness, y = um, color = Treatment)) +
   geom_point(alpha = 0.6) +
   
-  geom_hline(yintercept = 1500,
+  geom_hline(yintercept = 2000,
              color = "black",
              linetype = "dashed",
              linewidth = 0.8) +
@@ -57,7 +57,7 @@ plot_no_error <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Trea
     legend.text = element_text(size = 9)
   )
 
-
+print(plot_no_error)
 
         
 -------------------------------------------------------------------        
@@ -65,7 +65,7 @@ plot_no_error <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Trea
 plot_with_sem <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Treatment)) +
   geom_point(alpha = 0.6) +
   
-  geom_hline(yintercept = 1500,
+  geom_hline(yintercept = 2000,
              color = "black",
              linetype = "dashed",
              linewidth = 0.8) +
@@ -99,7 +99,7 @@ plot_with_sem <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Trea
   
   # horizontal reference line at 1500 µm depth
   geom_hline(
-    yintercept = 1500,
+    yintercept = 2000,
     color = "black",
     linetype = "dashed",
     linewidth = 0.8
@@ -121,7 +121,7 @@ plot_with_sem <- ggplot(summary_df, aes(x = um, y = Mean_Thickness, color = Trea
   )
 
   
-
+plot(plot_with_sem)
 
 
 # Define output directory
