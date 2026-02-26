@@ -1,0 +1,5 @@
+	site	depth	max_PAR	month_max_PAR	min_PAR	month_min_PAR	mean_PAR	sd_PAR	n	se_PAR	ci_lower	ci_upper	mean_delta_PAR	sd_delta_PAR	n_delta	se_delta_PAR
+1	Coral City	10	756.2	2023-04	13.3	2023-06	435.4	169.0	116.0	15.7	404.6	466.1	502.5	101.6	5.0	45.5
+2	Coral City	40	190.9	2023-04	2.0	2023-06	92.8	42.8	117.0	4.0	85.1	100.6	113.9	40.2	5.0	18.0
+3	Martha’s Finyard	10	745.4	2022-08	2.9	2023-07	446.6	170.1	190.0	12.3	422.4	470.8	556.4	67.1	8.0	23.7
+4	Martha’s Finyard	40	302.7	2023-05	1.2	2023-07	171.2	71.5	199.0	5.1	161.2	181.1	244.6	17.3	8.0	6.1

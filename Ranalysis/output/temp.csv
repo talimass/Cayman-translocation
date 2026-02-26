@@ -1,0 +1,5 @@
+site	depth	min_temp	month_min_temp	max_temp	month_max_temp	mean_temp_val	sd_temp	n	se_temp	mean_delta_temp	sd_delta_temp	n_delta	se_delta_temp
+Coral City	10.00	27.00	2023-03	30.98	2023-07	29.03	1.03	117	0.10	1.02	0.42	5	0.19
+Coral City	40.00	27.05	2023-03	30.42	2023-07	28.12	0.85	117	0.08	1.03	0.47	5	0.21
+Martha’s Finyard	10.00	27.08	2023-03	30.55	2023-07	29.26	0.94	199	0.07	0.92	0.39	8	0.14
+Martha’s Finyard	40.00	27.06	2023-03	30.17	2023-07	28.80	0.97	199	0.07	0.81	0.49	8	0.17
