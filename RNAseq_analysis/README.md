@@ -25,3 +25,7 @@ Raw counts tables produced with STAR in [mapping.sh](https://github.com/talimass
 
 ### [WGCNA analysis](https://github.com/talimass/Cayman-translocation/tree/main/RNAseq_analysis/WGCNA)
 VST-transformed counts were analyzed with WGCNA v.1.73 R package to identify modules of co-expressed genes and their association with experimental treatments. Network construction and module detection were performed with the `blockwiseModules` function. Identified modules were further grouped into clusters based on eigengene similarity. Differences between treatments within each cluster were tested using limma v.3.64.
+
+### [GO enrichment analysis](https://github.com/talimass/Cayman-translocation/tree/main/RNAseq_analysis/GO_enrichment)
+Significant DE genes and significant genes from WGCNA module clusters were used as an input for GO enrichment analysis via ClusterProfiler with an existing *P. astreoides* [GO annotation](https://github.com/fscucchia/Pastreoides_development_depth/blob/main/GO_Enrichment/Past_annot.csv). 
+
