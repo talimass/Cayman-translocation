@@ -81,10 +81,10 @@ gatk --java-options "-Xmx64G -XX:ParallelGCThreads=8" \
         VariantFiltration --reference ${REF} --variant ${OUT}.INDELs.vcf.gz \
         --output ${OUT}_INDELs_VarScores_filter.qd.vcf.gz \
         -filter "QUAL < $QUAL"  --filter-name "VarScores_filter_QUAL"  \
-	-filter  "QD < $SNP_QD_MIN"  --filter-name "VarScores_filter_QD" \
-	-filter  "MQ < $SNP_MQ_MIN" --filter-name "VarScores_filter_MQ"  \
-	-filter "FS > $SNP_FS_MAX"  --filter-name "VarScores_filter_FS"  \
-	-filter  "SOR > $SNP_SOR_MAX" --filter-name "VarScores_filter_SOR" \
+	-filter  "QD < $INDEL_QD_MIN"  --filter-name "VarScores_filter_QD" \
+	-filter  "MQ < $INDEL_MQ_MIN" --filter-name "VarScores_filter_MQ"  \
+	-filter "FS > $INDEL_FS_MAX"  --filter-name "VarScores_filter_FS"  \
+	-filter  "SOR > $INDEL_SOR_MAX" --filter-name "VarScores_filter_SOR" \
  	1> ${OUT}_INDELs_VarScores_filter.qd.vcf.gz.log 2>&1
 
 # Check the number of PASSED after the first filtering
