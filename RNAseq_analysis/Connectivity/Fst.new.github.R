@@ -15,35 +15,42 @@ library(ggrepel)
 library(GWASTools)
 library(poppr)
 library(patchwork)
+library(ape)
+library(ggtree)
+library(pcadapt)
+library(qvalue)
 
-setwd("~/haifa/cayman/rna/connect/admixture/new/")
+setwd("~/haifa/cayman/rna/connect/admixture/new/revision")
+
 
 #### no artificial clones ####
 # all except for the artificial clones and samples below missing 0.9 threshold
 ## Load the pruned SNPs
 
-bed.fn <- "P_astreoides_vcf_pruned_rel_all.bed"
-fam.fn <- "P_astreoides_vcf_pruned_rel_all.fam"
-bim.fn <- "P_astreoides_vcf_pruned_rel_all.bim"
+bed.fn <- "P_astreoides_vcf_pruned_no_art_0.4.bed"
+fam.fn <- "P_astreoides_vcf_pruned_no_art_0.4.fam"
+bim.fn <- "P_astreoides_vcf_pruned_no_art_0.4.bim"
 
 ## Create gds file
-snpgdsBED2GDS(bed.fn, fam.fn, bim.fn, "plink_pruned_rel_all.gds", cvt.chr="char")
-snpgdsSummary("plink_pruned_rel_all.gds")
+snpgdsBED2GDS(bed.fn, fam.fn, bim.fn, "plink_pruned_no_art.gds", cvt.chr="char")
+snpgdsSummary("plink_pruned_no_art.gds")
 ## Open the gds file
-genofile <- snpgdsOpen("plink_pruned_rel_all.gds")
+genofile <- snpgdsOpen("plink_pruned_no_art.gds")
+#The total number of samples: 20 
+#The total number of SNPs: 6337 
+###
 
 ## Get sample id
 sample.id <- read.gdsn(index.gdsn(genofile, "sample.id"))
 
-# Load your metadata (assumed to be a CSV with columns: sample, site, depth)
-meta <- read.csv("../../Metadata.csv")
+# Load metadata 
+meta <- read.csv("Metadata.csv")
 # Ensure sample names match
 meta <- meta[match(sample.id, meta$id), ]
 
 geno <- snpgdsGetGeno(genofile)  # matrix of SNPs x samples
 
 # hierfstat expects genotypes in 1/2 digit allele coding (e.g., 11, 12, 22), not 0/1/2
-# We can fake this by converting:
 
 #Convert 0/1/2 to hierfstat genotype format
 geno.df <- as.data.frame(t(geno))
@@ -63,7 +70,6 @@ geno.df.hierfstat$pop <- meta$without.relatives
 # hierfstat wants pop column to be first
 geno.df.hierfstat <- geno.df.hierfstat[, c(ncol(geno.df.hierfstat), 1:(ncol(geno.df.hierfstat) - 1))]
 
-# convert to StAMPP format
 genotype <- geno.df.hierfstat
 genotype.AA <- apply(t(genotype), 2, function(x) {
   y <- rep(NA, length(x))
@@ -74,12 +80,10 @@ genotype.AA <- apply(t(genotype), 2, function(x) {
 })
 genotype <- as.data.frame(t(genotype.AA))
 
-#genotype$Pop <- as.factor(geno.df.hierfstat$pop)
 genotype$Sample <- as.factor(sample.id)
 genotype$Ploidy <-2
 genotype$Format <- "BiA"
 genotype$Pop <- meta$without.relatives
-#genotype$Pop <- c("D", "D", "S", "D", "S", "D", "S", "D", "D", "S", "D", "D", "S")
 genotype <- genotype[!is.na(genotype$Pop), ]
 
 genotype <- genotype[,c("Sample", "Pop", "Ploidy", "Format", setdiff(names(genotype), c("Sample", "Pop", "Ploidy", "Format") ))]
@@ -87,135 +91,6 @@ cols <- 4:48477
 genotype[] <-lapply(genotype, as.factor)
 genotype$Ploidy <- 2
 genotype.st <- stamppConvert(genotype, "r")
-
-genotype.fst <- stamppFst(genotype.st,  nboots = 1000, percent = 95, nclusters=3)
-genotype.fst[["Pvalues"]]
-genotype.fst[["Fsts"]]
-
-#### plot ####
-fst <- genotype.fst[["Fsts"]]
-# Apply mask to upper triangle
-mask_upper_triangle <- function(mat) {
-  mat[upper.tri(mat)] <- NA
-  return(mat)
-}
-fst_lower <- mask_upper_triangle(fst)
-
-# Create label matrix
-#label_matrix <- matrix(sprintf("%.2f", fst), nrow = 3)
-label_matrix <- matrix(sprintf("%.2f", fst), nrow = 4)
-label_matrix[upper.tri(label_matrix)] <- NA
-label_matrix[is.na(label_matrix)] <- ""
-
-# Clustering based on symmetric version (NAs replaced with 0 for distance calc)
-fst_clust <- fst
-fst_clust[is.na(fst_clust)] <- 0
-row_order <- hclust(dist(fst_clust), method = "complete")
-
-# Get dimensions
-n_rows <- nrow(fst_lower)
-n_cols <- ncol(fst_lower)
-
-# Create 5 breaks and 5 matching colors
-breaks <- pretty(range(fst, na.rm = TRUE), n = 5)
-colors <- colorRampPalette(c("#e0f3f8", "#abd9e9", "#74add1", "#4575b4", "#313695"))(length(breaks))
-
-col_fun <- colorRamp2(breaks = breaks, colors = colors)
-custom_order <- c("MF.S", "MF.D", "CC.D", "CC.S")
-#custom_order <- c("MF.D", "CC.D", "CC.S")
-# Plot
-ht <- Heatmap(
-  fst_lower,
-  name = "Fst",
-  col = col_fun,
-  na_col = "white",
-  cluster_rows = FALSE,
-  #column_order = custom_order,
-  cluster_columns = FALSE,
-  show_row_dend = TRUE,
-  show_column_dend = FALSE,
-  show_row_names = TRUE,
-  show_column_names = TRUE,
-  row_names_side = "left",
-  column_names_side = "bottom",
-  row_names_gp = gpar(fontsize = 9),
-  column_names_gp = gpar(fontsize = 9),
-  rect_gp = gpar(col = NA),
-  cell_fun = function(j, i, x, y, width, height, fill) {
-    label <- label_matrix[i, j]
-    
-    # Draw bottom border for last row
-    if (i == n_rows) {
-      grid.lines(x = unit.c(x - 0.5 * width, x + 0.5 * width),
-                 y = unit.c(y - 0.5 * height, y - 0.5 * height),
-                 gp = gpar(col = "black", lwd = 1))
-    }
-    # Draw left border for first column
-    if (j == 1) {
-      grid.lines(x = unit.c(x - 0.5 * width, x - 0.5 * width),
-                 y = unit.c(y - 0.5 * height, y + 0.5 * height),
-                 gp = gpar(col = "black", lwd = 1))
-    }
-    
-    # Add text label
-    if (label != "") {
-      grid.text(label, x, y, gp = gpar(fontsize = 9, col = "black"))
-    }
-  },
-  heatmap_legend_param = list(
-    at = pretty(range(fst, na.rm = TRUE), n = 5),
-    labels = as.character(pretty(range(fst, na.rm = TRUE), n = 5)),
-    title = "Fst",
-    title_gp = gpar(fontsize = 11, fontface = "plain"),
-    labels_gp = gpar(fontsize = 9)
-  )
-)
-ht
-draw(ht)
-
-#### join with kinship ####
-
-# A) Kinship network saved as ggplot
-p1 <- readRDS("~/haifa/cayman/rna/connect/admixture/fig_kinship.rds")
-
-# If you want plot margins, do it on the ggplot BEFORE converting to grob:
-#p1 <- p1 + theme(plot.margin = margin(t = 10, r = 5, b = 5, l = 5))
-g1 <- ggplotGrob(p1)
-
-# B) ComplexHeatmap -> capture as grob
-g2 <- grid.grabExpr(
-  draw(ht, heatmap_legend_side = "right")
-)
-
-# Add panel labels (move a bit right with x = 0.06 npc)
-g1_t <- arrangeGrob(
-  g1,
-  top = textGrob("A",
-                 x = unit(0.02, "npc"), just = "left",
-                 gp = gpar(fontsize = 12))
-)
-
-g2_t <- arrangeGrob(
-  g2,
-  top = textGrob("B",
-                 x = unit(0.02, "npc"), just = "left",
-                 gp = gpar(fontsize = 12))
-)
-
-# Combine with a wider gap between panels
-combined <- arrangeGrob(
-  g1_t,
-  nullGrob(),   # spacer column
-  g2_t,
-  ncol = 3,
-  widths = unit.c(
-    unit(1, "null"),
-    unit(12, "mm"),  # GAP between A and B (increase to 15–20 mm if needed)
-    unit(1, "null")
-  )
-)
-
-ggsave("Fst.pdf", combined, width = 200, height = 110, units = "mm")
 
 
 #### PCA ####
@@ -236,10 +111,13 @@ pca <- dudi.pca(tab(geno.obj, NA.method = "mean"), scannf = F, nf = 2)
 s.class(pca$li, fac = pop.vector, col = rainbow(length(unique(pop.vector))))
 
 
-# Extract individual scores (coordinates)
+# Extract individual scores 
 scores <- as.data.frame(pca$li)
+
+# Ensure scores$SampleID contains names like "./35-MF-SD" instead of "1", "2", "3"
+scores$SampleID <- genotype.st2$Sample 
+
 scores$Pop <- pop.vector
-scores$SampleID <- rownames(scores)
 
 # Variance explained
 eig <- 100 * pca$eig / sum(pca$eig)
@@ -256,19 +134,33 @@ centroids <- scores %>%
 scores <- scores %>%
   left_join(centroids, by = "Pop", suffix = c("", ".centroid"))
 
+# Shorten names to numbers only
+scores$label <- gsub("^\\./|\\-.*$", "", scores$SampleID)
+
+# inch to pt conversion 
+pt_to_mm <- function(pt) pt / 2.845
+
 # Plot
-pca_plot2 <- ggplot(scores, aes(x = Axis1, y = Axis2, color = Pop)) +
+pca_plot_no_art <- ggplot(scores, aes(x = Axis1, y = Axis2, color = Pop)) +
   # segments from sample to centroid
   geom_segment(aes(xend = Axis1.centroid, yend = Axis2.centroid),
                alpha = 0.4, linewidth = 0.3) +
-  # centroid labels (drawn first, so underneath points)
+  
+  # centroid labels
   geom_text(data = centroids, aes(x = Axis1, y = Axis2, label = Pop, color = Pop),
-            , size = 6, show.legend = FALSE, alpha = 0.6) +
-  # points for samples (drawn after, so on top)
-  geom_point(size = 3) +
-  # centroid markers (optional cross shape)
-  #geom_point(data = centroids, aes(x = Axis1, y = Axis2, color = Pop),
-  #           size = 1, shape = 4, stroke = 1.5) +
+            size = pt_to_mm(8), show.legend = FALSE, alpha = 0.6, fontface = "bold") +
+  
+  # points for samples
+  geom_point(size = 1.5) +
+  
+  # sample numbers
+  geom_text_repel(aes(label = label), 
+                  size = pt_to_mm(6), 
+                  segment.size = 0.28,
+                  segment.alpha = 0.6,
+                  show.legend = FALSE,
+                  max.overlaps = Inf) + 
+  
   labs(
     x = paste0("PC1 (", round(eig[1], 1), "%)"),
     y = paste0("PC2 (", round(eig[2], 1), "%)")
@@ -276,110 +168,420 @@ pca_plot2 <- ggplot(scores, aes(x = Axis1, y = Axis2, color = Pop)) +
   theme_minimal() +
   theme(legend.position = "none")
 
-saveRDS(pca_plot2, "pca_plot_all.RDS")
 
-percent = pca$eig/sum(pca$eig)*100
-barplot(percent, ylab = "Genetic variance explained by eigenvectors (%)", ylim = c(0,12),
-        names.arg = round(percent, 1))
+pca_plot_no_art
+saveRDS(pca_plot_no_art, "fig_pca_no_art.rds")
+pca_plot_no_art <- readRDS("fig_pca_no_art.rds")
+
+#### IBS dendrogram and tree ####
+
+# Identity by State (IBS) Analysis
+ibs <- snpgdsIBS(genofile, num.thread=2)
+set.seed(100)
+ibs.hc <- snpgdsHCluster(ibs)
+rv <- snpgdsCutTree(ibs.hc)
+
+#  IBS similarity matrix into a distance matrix
+dist_matrix <- as.dist(1 - ibs$ibs)
+
+# hierarchical clustering (UPGMA)
+standard_hclust <- hclust(dist_matrix, method = "average")
+
+# sample IDs to the cluster labels
+standard_hclust$labels <- ibs$sample.id
+
+#  phylo format
+ibs_phylo <- as.phylo(standard_hclust)
+
+# Shorten the tip labels in the phylo object to numbers only
+# Removes "./" and everything after the first "-"
+ibs_phylo$tip.label <- gsub("^\\./|\\-.*$", "", ibs_phylo$tip.label)
+
+# Prepare metadata for ggtree
+meta_subset <- meta[, c("id", "all")] 
+colnames(meta_subset)[1] <- "label"
+
+# Ensure metadata labels also match the format
+meta_subset$label <- gsub("^\\./|\\-.*$", "", meta_subset$label)
+
+# 5. Plot with ggtree
+ibs_no_art <- ggtree(ibs_phylo, layout="rectangular", linewidth = 0.3) %<+% meta_subset +
+  geom_tiplab(size=pt_to_mm(6), offset=0.01) + 
+  geom_tippoint(aes(color=all), size=1.5) +
+  theme_tree2() +
+  labs(color = "Group")+
+  xlim(0, 0.21)
+
+ibs_no_art
+saveRDS(ibs_no_art, "fig_ibs_no_art.rds")
+ibs_no_art <- readRDS("fig_ibs_no_art.rds")
+
+#### no relatives ####
+# all clones and first-degree relatives detected by KING distance removed
+## Load the pruned SNPs
+
+bed.fn <- "P_astreoides_vcf_pruned_no_rel_0.4.bed"
+fam.fn <- "P_astreoides_vcf_pruned_no_rel_0.4.fam"
+bim.fn <- "P_astreoides_vcf_pruned_no_rel_0.4.bim"
+
+## Create gds file
+snpgdsBED2GDS(bed.fn, fam.fn, bim.fn, "plink_pruned_no_rel.gds", cvt.chr="char")
+snpgdsSummary("plink_pruned_no_rel.gds")
+## Open the gds file
+genofile <- snpgdsOpen("plink_pruned_no_rel.gds")
+#The total number of samples: 13 
+#The total number of SNPs: 6337 
+###
+
+## Get sample id
+sample.id <- read.gdsn(index.gdsn(genofile, "sample.id"))
+
+# Load metadata 
+meta <- read.csv("Metadata.csv")
+# Ensure sample names match
+meta <- meta[match(sample.id, meta$id), ]
+
+geno <- snpgdsGetGeno(genofile)  # matrix of SNPs x samples
+
+#Convert 0/1/2 to hierfstat genotype format
+geno.df <- as.data.frame(t(geno))
+
+# Convert 0/1/2 to hierfstat genotype format
+geno.df.hierf <- apply(geno.df, 2, function(x) {
+  y <- rep(NA, length(x))
+  y[x == 0] <- 11
+  y[x == 1] <- 12
+  y[x == 2] <- 22
+  return(y)
+})
+geno.df.hierfstat <- as.data.frame(t(geno.df.hierf))
 
 
-png("sclass.png", width=1200, height=1200, res=150)
-s.class(pca$li, fac = pop.vector, col = rainbow(length(unique(pop.vector))))
-dev.off()
+geno.df.hierfstat$pop <- meta$without.relatives
+# hierfstat wants pop column to be first
+geno.df.hierfstat <- geno.df.hierfstat[, c(ncol(geno.df.hierfstat), 1:(ncol(geno.df.hierfstat) - 1))]
 
+genotype <- geno.df.hierfstat
+genotype.AA <- apply(t(genotype), 2, function(x) {
+  y <- rep(NA, length(x))
+  y[x == 11] <- ("AA")
+  y[x == 12] <- ("AB")
+  y[x == 22] <- ("BB")
+  return(y)
+})
+genotype <- as.data.frame(t(genotype.AA))
 
-# plotting
+genotype$Sample <- as.factor(sample.id)
+genotype$Ploidy <-2
+genotype$Format <- "BiA"
+genotype$Pop <- meta$without.relatives
+genotype <- genotype[!is.na(genotype$Pop), ]
 
-ht_grob <- grid.grabExpr(draw(ht))
+genotype <- genotype[,c("Sample", "Pop", "Ploidy", "Format", setdiff(names(genotype), c("Sample", "Pop", "Ploidy", "Format") ))]
+cols <- 4:48477
+genotype[] <-lapply(genotype, as.factor)
+genotype$Ploidy <- 2
+genotype.st <- stamppConvert(genotype, "r")
 
-plotA <- ggdraw() +
-  draw_label("A. Heatmap of pairwise Fst", fontface = "bold", size = 12,
-             x = 0.5, y = 0.98, hjust = 0.5) +
-  draw_plot(ht_grob, 0, 0, 1, 0.93)
+#### Fst ####
 
+genotype.fst <- stamppFst(genotype.st,  nboots = 1000, percent = 95, nclusters=3)
+genotype.fst[["Pvalues"]]
+genotype.fst[["Fsts"]]
 
-plotB <- ggdraw() +
-  draw_label("B. PCA plot", fontface = "bold", size = 12,
-             x = 0.5, y = 0.98, hjust = 0.5) +
-  draw_plot(combined, 0, 0, 1, 0.93)
+# confidence intervals
+# Extract the bootstrap values (columns 3 onwards)
+boot_data <- genotype.fst[["Bootstraps"]][, -c(1, 2)]
 
-final <- plot_grid(plotA, plotB, ncol = 1, rel_widths = c(1, 1))
+# Calculate the 2.5% and 97.5% quantiles for each row
+ci_lower <- apply(boot_data, 1, quantile, probs = 0.025, na.rm = TRUE)
+ci_upper <- apply(boot_data, 1, quantile, probs = 0.975, na.rm = TRUE)
 
-final
-ggsave("combined_all_clones.jpg", final, width = 10, height = 5)
-
-
-#### heterozygosy analysis ####
-
-# Make sure all columns are numeric (except pop)
-geno.df.hierfstat[,-1] <- lapply(geno.df.hierfstat[,-1], function(x) as.numeric(as.character(x)))
-geno.df.hierfstat$pop <- as.factor(geno.df.hierfstat$pop)
-
-# Convert to hierfstat format
-gen_hier <- geno.df.hierfstat
-
-# Check structure
-str(gen_hier)
-# First column = pop (factor), remaining columns = numeric genotypes 11/12/22
-
-#  basic statistics per population 
-bs <- basic.stats(gen_hier)
-
-# Observed heterozygosity Ho per population
-Ho <- colMeans(bs$Ho, na.rm=TRUE)
-
-# Expected heterozygosity He per population
-He <- colMeans(bs$Hs, na.rm=TRUE)
-
-# FIS per population
-Fis <- colMeans(bs$Fis, na.rm=TRUE)
-
-# allelic richness per population 
-ar <- allelic.richness(gen_hier)
-
-
-# overall allelic richness per population - the mean across loci
-allelic_richness_pop <- colMeans(ar$Ar, na.rm=TRUE)
-
-results <- data.frame(
-  Site = names(allelic_richness_pop),  # population names
-  Ho = Ho,
-  He = He,
-  FIS = Fis,
-  AllelicRichness = allelic_richness_pop
+# Combine into a clean summary table
+fst_summary <- data.frame(
+  Pop1 = genotype.fst[["Bootstraps"]]$Population1,
+  Pop2 = genotype.fst[["Bootstraps"]]$Population2,
+  Fst = genotype.fst[["Fsts"]][lower.tri(genotype.fst[["Fsts"]])], # Extracts lower triangle values
+  L95 = ci_lower,
+  U95 = ci_upper,
+  Pval = genotype.fst[["Pvalues"]][lower.tri(genotype.fst[["Pvalues"]])]
 )
 
+print(fst_summary)
 
-print(results)
-write.csv(results, "stat.rel.all.csv")
+#### plot Fst no relatives ####
+
+# Prepare data
+fst_mat  <- genotype.fst[["Fsts"]]
+# Ensure p-values are available for both triangles by filling the matrix
+pval_mat <- genotype.fst[["Pvalues"]]
+boot_data <- genotype.fst[["Bootstraps"]][, -c(1, 2)]
+
+# Calculate CIs
+ci_low <- apply(boot_data, 1, quantile, probs = 0.025, na.rm = TRUE)
+ci_upp <- apply(boot_data, 1, quantile, probs = 0.975, na.rm = TRUE)
+
+# Convert to Long Format
+fst_df <- expand.grid(Pop1 = rownames(fst_mat), 
+                      Pop2 = colnames(fst_mat), 
+                      stringsAsFactors = FALSE)
+
+# Add values and labels
+fst_df$label   <- ""
+fst_df$color_val <- NA_real_
+boot_idx <- 1
+
+for(i in 1:nrow(fst_df)) {
+  p1 <- fst_df$Pop1[i]
+  p2 <- fst_df$Pop2[i]
+  
+  r <- which(rownames(fst_mat) == p1)
+  c <- which(colnames(fst_mat) == p2)
+  
+  if (r > c) {
+    # LOWER TRIANGLE: Fst [CI]
+    fst_val <- fst_mat[r, c]
+    fst_df$label[i] <- sprintf("%.2f\n[%.2f, %.2f]", fst_val, ci_low[boot_idx], ci_upp[boot_idx])
+    fst_df$color_val[i] <- fst_val
+    boot_idx <- boot_idx + 1
+  } else if (r < c) {
+    # UPPER TRIANGLE: P-values 
+    pv <- pval_mat[c, r] 
+    fst_df$label[i] <- ifelse(is.na(pv), "", 
+                              ifelse(pv < 0.001, "p < 0.001", sprintf("p = %.3f", pv)))
+  }
+}
 
 
-#### first degree only in MF.S ####
+#  Final plot 
+fst_no_rel <- ggplot(fst_df, aes(x = Pop2, y = Pop1)) +
+  geom_tile(fill = "white", color = "grey90", lwd = 0.3) +
+  geom_tile(aes(fill = color_val), color = "grey90", lwd = 0.3) +
+  
+  geom_text(
+    aes(label = label),
+    size = pt_to_mm(6),
+    color = "black",
+    lineheight = 0.75
+  ) +
+  
+  scale_fill_gradientn(
+    colors = c("#e0f3f8", "#abd9e9", "#74add1", "#4575b4"),
+    name = expression(F[ST]),
+    na.value = "transparent",
+    guide = guide_colorbar(
+      barwidth = unit(3, "mm"),
+      barheight = unit(22, "mm"),
+      title.position = "top",
+      title.hjust = 0.5
+    )
+  ) +
+  
+  scale_y_discrete(limits = rev(rownames(fst_mat))) +
+  coord_fixed() +
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    
+    axis.text = element_text(
+      face = "bold",
+      color = "black",
+      size = 6
+    ),
+    
+    legend.position = "right",
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 6),
+    legend.key.width = unit(3, "mm"),
+    legend.key.height = unit(4, "mm"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, -4),
+    
+    plot.margin = margin(3, 1, 3, 3, unit = "pt")
+  )
+fst_no_rel
+saveRDS(fst_no_rel, "fig_fst_no_rel.rds")
+fst_no_rel <- readRDS("fig_fst_no_rel.rds")
+
+#### PCA_no_rel ####
+genotype.st  -> genotype.st2
+geno.nas <- genotype.st2[, !(names(genotype.st2) %in% c("Sample", "Pop", "pop.num", "ploidy", "format"))]
+pop.vector <- as.factor(genotype.st2[[2]])
+convert_to_genind_format <- function(x) {
+  ifelse(is.na(x), NA,
+         ifelse(x == 1, "11",
+                ifelse(x == 0.5, "12",
+                       ifelse(x == 0, "22", NA))))
+}
+
+geno.char <- as.data.frame(lapply(geno.nas, convert_to_genind_format), stringsAsFactors = FALSE)
+geno.obj <- df2genind(geno.char, pop = pop.vector, ploidy = 2, NA.char = NA, sep = "")
+dist.mtx <- dist(geno.obj)
+pca <- dudi.pca(tab(geno.obj, NA.method = "mean"), scannf = F, nf = 2)
+s.class(pca$li, fac = pop.vector, col = rainbow(length(unique(pop.vector))))
+
+scores <- as.data.frame(pca$li)
+
+scores$SampleID <- genotype.st2$Sample 
+
+scores$Pop <- pop.vector
+
+eig <- 100 * pca$eig / sum(pca$eig)
+
+# centroids per population
+centroids <- scores %>%
+  group_by(Pop) %>%
+  summarise(
+    Axis1 = mean(Axis1),
+    Axis2 = mean(Axis2)
+  )
+
+# centroid coords to scores
+scores <- scores %>%
+  left_join(centroids, by = "Pop", suffix = c("", ".centroid"))
+
+# truncate names
+scores$label <- gsub("^\\./|\\-.*$", "", scores$SampleID)
+
+# 2. Plot
+pca_plot_no_rel <- ggplot(scores, aes(x = Axis1, y = Axis2, color = Pop)) +
+  # segments from sample to centroid
+  geom_segment(aes(xend = Axis1.centroid, yend = Axis2.centroid),
+               alpha = 0.4, linewidth = 0.3) +
+  
+  # centroid labels
+  geom_text(data = centroids, aes(x = Axis1, y = Axis2, label = Pop, color = Pop),
+            size = pt_to_mm(8), show.legend = FALSE, alpha = 0.6, fontface = "bold") +
+  
+  # points for samples
+  geom_point(size = 1.5) +
+  
+  # Sample numbers
+  geom_text_repel(aes(label = label), 
+                  size = pt_to_mm(6), 
+                  segment.size = 0.28,
+                  segment.alpha = 0.6,
+                  show.legend = FALSE,
+                  max.overlaps = Inf) + 
+  
+  labs(
+    x = paste0("PC1 (", round(eig[1], 1), "%)"),
+    y = paste0("PC2 (", round(eig[2], 1), "%)")
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+pca_plot_no_rel
+
+
+pca_plot_no_rel
+saveRDS(pca_plot_no_rel, "fig_pca_no_rel.rds")
+pca_plot_no_rel <- readRDS("fig_pca_no_rel.rds")
+
+
+#### IBS dendrogram and tree no relatives ####
+# Identity by State (IBS) Analysis
+ibs <- snpgdsIBS(genofile, num.thread=2)
+set.seed(100)
+ibs.hc <- snpgdsHCluster(ibs)
+rv <- snpgdsCutTree(ibs.hc)
+dist_matrix <- as.dist(1 - ibs$ibs)
+standard_hclust <- hclust(dist_matrix, method = "average")
+standard_hclust$labels <- ibs$sample.id
+ibs_phylo <- as.phylo(standard_hclust)
+ibs_phylo$tip.label <- gsub("^\\./|\\-.*$", "", ibs_phylo$tip.label)
+meta_subset <- meta[, c("id", "all")] 
+colnames(meta_subset)[1] <- "label"
+meta_subset$label <- gsub("^\\./|\\-.*$", "", meta_subset$label)
+
+ibs_no_rel <-ggtree(ibs_phylo, layout="rectangular", linewidth = 0.3) %<+% meta_subset +
+  geom_tiplab(size=pt_to_mm(6), offset=0.01) + 
+  geom_tippoint(aes(color=all), size=1.5) +
+  theme_tree2() +
+  labs(color = "Group")+
+  xlim(0, 0.21)
+
+ibs_no_rel
+saveRDS(ibs_no_rel, "fig_ibs_no_rel.rds")
+ibs_no_rel <- readRDS("fig_ibs_no_rel.rds")
+
+#### pcadapt ####
+
+# filtered plink files 
+path_to_bed <- "P_astreoides_vcf_pruned_no_rel_0.4.bed"
+
+# load the data
+# pcadapt will look for the associated .bim and .fam files in the same folder
+data_pcadapt <- read.pcadapt(path_to_bed, type = "bed")
+
+# analysis
+x <- pcadapt(data_pcadapt, K = 11)
+plot(x, option = "screeplot")
+# K = 3 
+x <- pcadapt(data_pcadapt, K = 3)
+
+plot(x, option = "scores",  i = 2, j = 3, pop = meta$all)
+# plots
+plot(x, option = "scores")
+plot(x, option = "qqplot")
+plot(x, option = "stat.distribution")
+plot(x, option = "manhattan")
+
+# checking different K
+Ks <- 1:4
+
+res_list <- lapply(Ks, function(k) {
+  x <- pcadapt(data_pcadapt, K = k, ploidy = 2)
+  q <- qvalue::qvalue(x$pvalues)$qvalues
+  data.frame(
+    K = k,
+    n_outliers_q01 = sum(q < 0.01, na.rm = TRUE),
+    n_outliers_q05 = sum(q < 0.05, na.rm = TRUE)
+  )
+})
+
+do.call(rbind, res_list)
+
+# significance threshold
+qval <- qvalue(x$pvalues)$qvalues
+alpha <- 0.05 
+outliers <- which(qval < alpha)
+
+# Extract names of outlier SNPs from  .bim file
+bim <- read.table("P_astreoides_vcf_pruned_no_rel_0.4.bim")
+outlier_snp_names <- bim$V2[outliers]
+# 529
+# Save for PLINK
+write.table(outlier_snp_names, "outliers_to_remove_0.05.txt", 
+            quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+#### no relatives, pcadapt snps removed ####
 
 ## Load the pruned SNPs
 
-bed.fn <- "P_astreoides_vcf_pruned_rel_mfs.bed"
-fam.fn <- "P_astreoides_vcf_pruned_rel_mfs.fam"
-bim.fn <- "P_astreoides_vcf_pruned_rel_mfs.bim"
+bed.fn <- "P_astreoides_vcf_pruned_no_rel_0.4_pcadapt.bed"
+fam.fn <- "P_astreoides_vcf_pruned_no_rel_0.4_pcadapt.fam"
+bim.fn <- "P_astreoides_vcf_pruned_no_rel_0.4_pcadapt.bim"
 
 ## Create gds file
-snpgdsBED2GDS(bed.fn, fam.fn, bim.fn, "plink_pruned_rel_mfs2.gds", cvt.chr="char")
-snpgdsSummary("plink_pruned_rel_mfs2.gds")
+snpgdsBED2GDS(bed.fn, fam.fn, bim.fn, "plink_pruned_no_rel_pcadapt.gds", cvt.chr="char")
+snpgdsSummary("plink_pruned_no_rel_pcadapt.gds")
 ## Open the gds file
-genofile <- snpgdsOpen("plink_pruned_rel_mfs2.gds")
+genofile <- snpgdsOpen("plink_pruned_no_rel_pcadapt.gds")
+#The total number of samples: 13 
+#The total number of SNPs: 5808 
+###
 
 ## Get sample id
 sample.id <- read.gdsn(index.gdsn(genofile, "sample.id"))
 
-# Load your metadata (assumed to be a CSV with columns: sample, site, depth)
-meta <- read.csv("../../Metadata.csv")
-# Ensure sample names match
+# metadata 
+meta <- read.csv("Metadata.csv")
+# sample names match
 meta <- meta[match(sample.id, meta$id), ]
 
 geno <- snpgdsGetGeno(genofile)  # matrix of SNPs x samples
-
-# hierfstat expects genotypes in 1/2 digit allele coding (e.g., 11, 12, 22), not 0/1/2
-# We can fake this by converting:
 
 #Convert 0/1/2 to hierfstat genotype format
 geno.df <- as.data.frame(t(geno))
@@ -394,12 +596,10 @@ geno.df.hierf <- apply(geno.df, 2, function(x) {
 })
 geno.df.hierfstat <- as.data.frame(t(geno.df.hierf))
 
-
 geno.df.hierfstat$pop <- meta$without.relatives
 # hierfstat wants pop column to be first
 geno.df.hierfstat <- geno.df.hierfstat[, c(ncol(geno.df.hierfstat), 1:(ncol(geno.df.hierfstat) - 1))]
 
-# convert to StAMPP format
 genotype <- geno.df.hierfstat
 genotype.AA <- apply(t(genotype), 2, function(x) {
   y <- rep(NA, length(x))
@@ -410,12 +610,10 @@ genotype.AA <- apply(t(genotype), 2, function(x) {
 })
 genotype <- as.data.frame(t(genotype.AA))
 
-#genotype$Pop <- as.factor(geno.df.hierfstat$pop)
 genotype$Sample <- as.factor(sample.id)
 genotype$Ploidy <-2
 genotype$Format <- "BiA"
 genotype$Pop <- meta$without.relatives
-#genotype$Pop <- c("D", "D", "S", "D", "S", "D", "S", "D", "D", "S", "D", "D", "S")
 genotype <- genotype[!is.na(genotype$Pop), ]
 
 genotype <- genotype[,c("Sample", "Pop", "Ploidy", "Format", setdiff(names(genotype), c("Sample", "Pop", "Ploidy", "Format") ))]
@@ -424,140 +622,124 @@ genotype[] <-lapply(genotype, as.factor)
 genotype$Ploidy <- 2
 genotype.st <- stamppConvert(genotype, "r")
 
+#### Fst ####
+
 genotype.fst <- stamppFst(genotype.st,  nboots = 1000, percent = 95, nclusters=3)
 genotype.fst[["Pvalues"]]
 genotype.fst[["Fsts"]]
 
-#### plot ####
-fst <- genotype.fst[["Fsts"]]
-# Apply mask to upper triangle
-mask_upper_triangle <- function(mat) {
-  mat[upper.tri(mat)] <- NA
-  return(mat)
+# confidence intervals
+boot_data <- genotype.fst[["Bootstraps"]][, -c(1, 2)]
+ci_lower <- apply(boot_data, 1, quantile, probs = 0.025, na.rm = TRUE)
+ci_upper <- apply(boot_data, 1, quantile, probs = 0.975, na.rm = TRUE)
+
+fst_summary <- data.frame(
+  Pop1 = genotype.fst[["Bootstraps"]]$Population1,
+  Pop2 = genotype.fst[["Bootstraps"]]$Population2,
+  Fst = genotype.fst[["Fsts"]][lower.tri(genotype.fst[["Fsts"]])], # Extracts lower triangle values
+  L95 = ci_lower,
+  U95 = ci_upper,
+  Pval = genotype.fst[["Pvalues"]][lower.tri(genotype.fst[["Pvalues"]])]
+)
+
+print(fst_summary)
+
+
+#### Fst plot no rel pcadapt ####
+
+# Prepare data
+fst_mat  <- genotype.fst[["Fsts"]]
+pval_mat <- genotype.fst[["Pvalues"]]
+boot_data <- genotype.fst[["Bootstraps"]][, -c(1, 2)]
+
+# Calculate CIs
+ci_low <- apply(boot_data, 1, quantile, probs = 0.025, na.rm = TRUE)
+ci_upp <- apply(boot_data, 1, quantile, probs = 0.975, na.rm = TRUE)
+
+fst_df <- expand.grid(Pop1 = rownames(fst_mat), 
+                      Pop2 = colnames(fst_mat), 
+                      stringsAsFactors = FALSE)
+
+# Add values and labels
+fst_df$label   <- ""
+fst_df$color_val <- NA_real_
+boot_idx <- 1
+
+for(i in 1:nrow(fst_df)) {
+  p1 <- fst_df$Pop1[i]
+  p2 <- fst_df$Pop2[i]
+  
+  r <- which(rownames(fst_mat) == p1)
+  c <- which(colnames(fst_mat) == p2)
+  
+  if (r > c) {
+    # LOWER TRIANGLE: Fst [CI]
+    fst_val <- fst_mat[r, c]
+    fst_df$label[i] <- sprintf("%.2f\n[%.2f, %.2f]", fst_val, ci_low[boot_idx], ci_upp[boot_idx])
+    fst_df$color_val[i] <- fst_val
+    boot_idx <- boot_idx + 1
+  } else if (r < c) {
+    # UPPER TRIANGLE: P-values 
+    pv <- pval_mat[c, r] 
+    fst_df$label[i] <- ifelse(is.na(pv), "", 
+                              ifelse(pv < 0.001, "p < 0.001", sprintf("p = %.3f", pv)))
+  }
 }
-fst_lower <- mask_upper_triangle(fst)
 
-# Create label matrix
-#label_matrix <- matrix(sprintf("%.2f", fst), nrow = 3)
-label_matrix <- matrix(sprintf("%.2f", fst), nrow = 4)
-label_matrix[upper.tri(label_matrix)] <- NA
-label_matrix[is.na(label_matrix)] <- ""
 
-# Clustering based on symmetric version (NAs replaced with 0 for distance calc)
-fst_clust <- fst
-fst_clust[is.na(fst_clust)] <- 0
-row_order <- hclust(dist(fst_clust), method = "complete")
-
-# Get dimensions
-n_rows <- nrow(fst_lower)
-n_cols <- ncol(fst_lower)
-
-# Create 5 breaks and 5 matching colors
-breaks <- pretty(range(fst, na.rm = TRUE), n = 5)
-colors <- colorRampPalette(c("#e0f3f8", "#abd9e9", "#74add1", "#4575b4", "#313695"))(length(breaks))
-
-col_fun <- colorRamp2(breaks = breaks, colors = colors)
-custom_order <- c("MF.S", "MF.D", "CC.D", "CC.S")
-#custom_order <- c("MF.D", "CC.D", "CC.S")
-# Plot
-ht <- Heatmap(
-  fst_lower,
-  name = "Fst",
-  col = col_fun,
-  na_col = "white",
-  cluster_rows = FALSE,
-  #column_order = custom_order,
-  cluster_columns = FALSE,
-  show_row_dend = TRUE,
-  show_column_dend = FALSE,
-  show_row_names = TRUE,
-  show_column_names = TRUE,
-  row_names_side = "left",
-  column_names_side = "bottom",
-  row_names_gp = gpar(fontsize = 9),
-  column_names_gp = gpar(fontsize = 9),
-  rect_gp = gpar(col = NA),
-  cell_fun = function(j, i, x, y, width, height, fill) {
-    label <- label_matrix[i, j]
+# Final plot 
+fst_no_rel_pcadapt <- ggplot(fst_df, aes(x = Pop2, y = Pop1)) +
+  geom_tile(fill = "white", color = "grey90", lwd = 0.3) +
+  geom_tile(aes(fill = color_val), color = "grey90", lwd = 0.3) +
+  
+  geom_text(
+    aes(label = label),
+    size = pt_to_mm(6),
+    color = "black",
+    lineheight = 0.75
+  ) +
+  
+  scale_fill_gradientn(
+    colors = c("#e0f3f8", "#abd9e9", "#74add1", "#4575b4"),
+    name = expression(F[ST]),
+    na.value = "transparent",
+    guide = guide_colorbar(
+      barwidth = unit(3, "mm"),
+      barheight = unit(22, "mm"),
+      title.position = "top",
+      title.hjust = 0.5
+    )
+  ) +
+  
+  scale_y_discrete(limits = rev(rownames(fst_mat))) +
+  coord_fixed() +
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
     
-    # Draw bottom border for last row
-    if (i == n_rows) {
-      grid.lines(x = unit.c(x - 0.5 * width, x + 0.5 * width),
-                 y = unit.c(y - 0.5 * height, y - 0.5 * height),
-                 gp = gpar(col = "black", lwd = 1))
-    }
-    # Draw left border for first column
-    if (j == 1) {
-      grid.lines(x = unit.c(x - 0.5 * width, x - 0.5 * width),
-                 y = unit.c(y - 0.5 * height, y + 0.5 * height),
-                 gp = gpar(col = "black", lwd = 1))
-    }
+    axis.text = element_text(
+      face = "bold",
+      color = "black",
+      size = 6
+    ),
     
-    # Add text label
-    if (label != "") {
-      grid.text(label, x, y, gp = gpar(fontsize = 9, col = "black"))
-    }
-  },
-  heatmap_legend_param = list(
-    at = pretty(range(fst, na.rm = TRUE), n = 5),
-    labels = as.character(pretty(range(fst, na.rm = TRUE), n = 5)),
-    title = "Fst",
-    title_gp = gpar(fontsize = 11, fontface = "plain"),
-    labels_gp = gpar(fontsize = 9)
+    legend.position = "right",
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 6),
+    legend.key.width = unit(3, "mm"),
+    legend.key.height = unit(4, "mm"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, -4),
+    
+    plot.margin = margin(3, 1, 3, 3, unit = "pt")
   )
-)
-ht
-draw(ht)
+fst_no_rel_pcadapt
 
-#### heterozygousy analysis ####
+saveRDS(fst_no_rel_pcadapt, "fig_fst_no_rel_pcadapt.rds")
+fst_no_rel_pcadapt <- readRDS("fig_fst_no_rel_pcadapt.rds")
 
-# Make sure all columns are numeric (except pop)
-geno.df.hierfstat[,-1] <- lapply(geno.df.hierfstat[,-1], function(x) as.numeric(as.character(x)))
-geno.df.hierfstat$pop <- as.factor(geno.df.hierfstat$pop)
-
-# Convert to hierfstat format
-gen_hier <- geno.df.hierfstat
-
-# Check structure
-str(gen_hier)
-# First column = pop (factor), remaining columns = numeric genotypes 11/12/22
-
-#  basic statistics per population 
-bs <- basic.stats(gen_hier)
-
-# Observed heterozygosity Ho per population
-Ho <- colMeans(bs$Ho, na.rm=TRUE)
-
-# Expected heterozygosity He per population
-He <- colMeans(bs$Hs, na.rm=TRUE)
-
-# FIS per population
-Fis <- colMeans(bs$Fis, na.rm=TRUE)
-
-# allelic richness per population
-ar <- allelic.richness(gen_hier)
-
-# Check structure of allelic richness object
-str(ar$Ar)
-# Typically it's: loci x populations
-
-# overall allelic richness per population - the mean across loci
-allelic_richness_pop <- colMeans(ar$Ar, na.rm=TRUE)
-
-# Now combine into results table
-results <- data.frame(
-  Site = names(allelic_richness_pop),  # population names
-  Ho = Ho,
-  He = He,
-  FIS = Fis,
-  AllelicRichness = allelic_richness_pop
-)
-
-
-print(results)
-write.csv(results, "stat.rel.mfsonly.csv")
-
-#### PCA ####
+#### PCA_no_rel pcadapt ####
 genotype.st  -> genotype.st2
 geno.nas <- genotype.st2[, !(names(genotype.st2) %in% c("Sample", "Pop", "pop.num", "ploidy", "format"))]
 pop.vector <- as.factor(genotype.st2[[2]])
@@ -575,10 +757,9 @@ pca <- dudi.pca(tab(geno.obj, NA.method = "mean"), scannf = F, nf = 2)
 s.class(pca$li, fac = pop.vector, col = rainbow(length(unique(pop.vector))))
 
 
-# Extract individual scores (coordinates)
 scores <- as.data.frame(pca$li)
+scores$SampleID <- genotype.st2$Sample 
 scores$Pop <- pop.vector
-scores$SampleID <- rownames(scores)
 
 # Variance explained
 eig <- 100 * pca$eig / sum(pca$eig)
@@ -595,19 +776,30 @@ centroids <- scores %>%
 scores <- scores %>%
   left_join(centroids, by = "Pop", suffix = c("", ".centroid"))
 
+scores$label <- gsub("^\\./|\\-.*$", "", scores$SampleID)
+
+
 # Plot
-pca_plot3 <- ggplot(scores, aes(x = Axis1, y = Axis2, color = Pop)) +
+pca_plot_no_rel_pcadapt <- ggplot(scores, aes(x = Axis1, y = Axis2, color = Pop)) +
   # segments from sample to centroid
   geom_segment(aes(xend = Axis1.centroid, yend = Axis2.centroid),
                alpha = 0.4, linewidth = 0.3) +
-  # centroid labels (drawn first, so underneath points)
+  
+  # centroid labels
   geom_text(data = centroids, aes(x = Axis1, y = Axis2, label = Pop, color = Pop),
-            , size = 6, show.legend = FALSE, alpha = 0.6) +
-  # points for samples (drawn after, so on top)
-  geom_point(size = 3) +
-  # centroid markers (optional cross shape)
-  #geom_point(data = centroids, aes(x = Axis1, y = Axis2, color = Pop),
-  #           size = 1, shape = 4, stroke = 1.5) +
+            size = pt_to_mm(8), show.legend = FALSE, alpha = 0.6, fontface = "bold") +
+  
+  # points for samples
+  geom_point(size = 1.5) +
+  
+  #  Sample numbers 
+  geom_text_repel(aes(label = label), 
+                  size = pt_to_mm(6), 
+                  segment.size = 0.28,
+                  segment.alpha = 0.6,
+                  show.legend = FALSE,
+                  max.overlaps = Inf) + 
+  
   labs(
     x = paste0("PC1 (", round(eig[1], 1), "%)"),
     y = paste0("PC2 (", round(eig[2], 1), "%)")
@@ -615,33 +807,144 @@ pca_plot3 <- ggplot(scores, aes(x = Axis1, y = Axis2, color = Pop)) +
   theme_minimal() +
   theme(legend.position = "none")
 
-saveRDS(pca_plot3, "pca_plot_MFonly.RDS")
+pca_plot_no_rel_pcadapt
 
 
-#### combine PCA plots ####
-
-combined <- (pca_plot2 | pca_plot3) + 
-  plot_annotation(tag_levels = 'A')
-
-combined
-ggsave("~/haifa/cayman/rna/mapping/github/fin/combined_PCA.jpg", combined, width = 8, height = 4)
-ggsave("~/haifa/cayman/rna/mapping/github/fin/combined_PCA.pdf", combined, width = 8, height = 4)
-
-# with a new PCA plot
-
-ht_grob <- grid.grabExpr(draw(ht))
-
-plotA <- ggdraw() +
-  draw_plot(ht_grob, 0, 0, 1, 0.93)
+pca_plot_no_rel_pcadapt
+saveRDS(pca_plot_no_rel_pcadapt, "fig_pca_no_rel_pcadapt.rds")
+pca_plot_no_rel_pcadapt <- readRDS("fig_pca_no_rel_pcadapt.rds")
 
 
-plotB <- ggdraw() +
-  draw_plot(combined, 0, 0, 1, 0.93)
+#### IBS dendrogram and tree no relatives pcadapt####
+# Identity by State (IBS) Analysis
+ibs <- snpgdsIBS(genofile, num.thread=2)
+set.seed(100)
+ibs.hc <- snpgdsHCluster(ibs)
+rv <- snpgdsCutTree(ibs.hc)
 
-final <- plot_grid(plotA, plotB, ncol = 1, rel_widths = c(1, 1))
+dist_matrix <- as.dist(1 - ibs$ibs)
+standard_hclust <- hclust(dist_matrix, method = "average")
+standard_hclust$labels <- ibs$sample.id
+ibs_phylo <- as.phylo(standard_hclust)
+ibs_phylo$tip.label <- gsub("^\\./|\\-.*$", "", ibs_phylo$tip.label)
+meta_subset <- meta[, c("id", "all")] 
+colnames(meta_subset)[1] <- "label"
+meta_subset$label <- gsub("^\\./|\\-.*$", "", meta_subset$label)
 
-final
-ggsave("~/haifa/cayman/rna/mapping/github/fin/combined_PCA_Fst.jpg", final, width = 6, height = 6)
-ggsave("~/haifa/cayman/rna/mapping/github/fin/combined_PCA_Fst.pdf", final, width = 6, height = 6)
+ibs_no_rel_pcadapt <- ggtree(ibs_phylo, layout="rectangular", linewidth = 0.3) %<+% meta_subset +
+  geom_tiplab(size=pt_to_mm(6), offset=0.01) + 
+  geom_tippoint(aes(color=all), size=1.5) +
+  theme_tree2() +
+  labs(color = "Group")+
+  xlim(0, 0.19)
+
+ibs_no_rel_pcadapt
+saveRDS(ibs_no_rel_pcadapt, "fig_ibs_no_rel_pcadapt.rds")
+ibs_no_rel_pcadapt <- readRDS("fig_ibs_no_rel_pcadapt.rds")
+
+#### final plotting ####
+kinship <- readRDS("fig_kinship.rds")
+ibs_no_rel_pcadapt <- readRDS("fig_ibs_no_rel_pcadapt.rds")
+pca_plot_no_rel_pcadapt <- readRDS("fig_pca_no_rel_pcadapt.rds")
+fst_no_rel_pcadapt <- readRDS("fig_fst_no_rel_pcadapt.rds")
+ibs_no_rel <- readRDS("fig_ibs_no_rel.rds")
+pca_plot_no_rel <- readRDS("fig_pca_no_rel.rds")
+fst_no_rel <- readRDS("fig_fst_no_rel.rds")
+ibs_no_art <- readRDS("fig_ibs_no_art.rds")
+pca_plot_no_art <- readRDS("fig_pca_no_art.rds")
+
+#### supplementary fig ####
+fig_theme_sup <- theme(
+  axis.title = element_text(size = 8),
+  axis.text = element_text(size = 6),
+  legend.title = element_text(size = 6),
+  legend.text = element_text(size = 6),
+  strip.text = element_text(size = 6),
+  text = element_text(size = 6)
+)
 
 
+pca_colors <- c(
+  "D.CC" = "#00C19A", 
+  "D.MF" = "#00A9FF", 
+  "S.CC" = "#ED68ED", 
+  "S.MF" = "#FF68A1"
+)
+pca_plot_no_art2 <- pca_plot_no_art +
+  scale_color_manual(values = pca_colors) +
+  fig_theme_sup
+
+pca_plot_no_rel2 <- pca_plot_no_rel +
+  scale_color_manual(values = pca_colors) +
+  fig_theme_sup
+
+pca_plot_no_rel_pcadapt2 <- pca_plot_no_rel_pcadapt +
+  scale_color_manual(values = pca_colors) +
+  fig_theme_sup
+
+ibs_no_rel2 <- ibs_no_rel +
+  scale_color_manual(values = pca_colors) +
+  fig_theme_sup
+
+ibs_no_rel_pcadapt2 <- ibs_no_rel_pcadapt +
+  scale_color_manual(values = pca_colors) +
+  fig_theme_sup
+
+fst_no_rel_pcadapt2 <- fst_no_rel_pcadapt+
+  fig_theme_sup 
+
+combined_sup <- (
+  (pca_plot_no_art2 | pca_plot_no_rel2 | pca_plot_no_rel_pcadapt2) /
+    (fst_no_rel_pcadapt2 | ibs_no_rel2 | ibs_no_rel_pcadapt2)
+) +
+  patchwork::plot_annotation(
+    tag_levels = "A",
+    theme = ggplot2::theme(
+      plot.tag = element_text(size = 9, face = "bold")
+    ))
+
+
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_figS3.pdf",
+  plot = combined_sup,
+  width = 18.4,
+  height = 10,
+  units = "cm",
+  device = "pdf",
+  useDingbats = FALSE
+)
+
+#### fig 2 ####
+ibs_no_art_tagged <- ibs_no_art +
+  ggplot2::labs(tag = "A") +
+  ggplot2::theme(
+    plot.tag = ggplot2::element_text(face = "bold", size = 9)
+  )+ scale_color_manual(values = pca_colors) +
+  fig_theme_sup
+  
+
+kinship_tagged <- kinship +
+  ggplot2::labs(tag = "B") +
+  ggplot2::theme(
+    plot.tag = ggplot2::element_text(face = "bold", size = 9)
+  )+ scale_color_manual(values = pca_colors) 
+
+fst_no_rel_tagged <- fst_no_rel +
+  ggplot2::labs(tag = "C") +
+  ggplot2::theme(
+    plot.tag = ggplot2::element_text(face = "bold", size = 9)
+  )+ scale_color_manual(values = pca_colors) +
+  fig_theme_sup
+
+combined_fig2 <- (ibs_no_art_tagged | (kinship_tagged / fst_no_rel_tagged)) +
+  patchwork::plot_layout(widths = c(1.3, 0.7))
+
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_fig2.pdf",
+  plot = combined_fig2,
+  width = 18.4,
+  height = 10,
+  units = "cm",
+  device = "pdf",
+  useDingbats = FALSE
+)
