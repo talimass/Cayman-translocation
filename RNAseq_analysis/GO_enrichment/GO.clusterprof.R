@@ -1,4 +1,3 @@
-library(goseq)
 library(tidyverse)
 library(GSEABase)               #BiocManager::install("GSEABase")
 library(data.table)
@@ -10,8 +9,8 @@ library(tidyr)
 library(clusterProfiler)
 library(ontologyIndex)
 library(GOSemSim)
-library(simplifyEnrichment)
-library(org.Hs.eg.db)
+#library(simplifyEnrichment)
+#library(org.Hs.eg.db)
 library(rlang)
 library(readr)
 library(stringr)
@@ -97,7 +96,7 @@ run_enrichment <- function(comp_name) {
   
   # Save enrichment results
   write_csv(enrichment@result, paste0("enrichment_results.", comp_name, ".lfc1.csv"))
-
+}
 # Run for all comparisons
 lapply(comparisons, run_enrichment)
 
@@ -130,7 +129,7 @@ enrich_results <- list(
 # Function to compute mean logFC per GO term
 compute_mean_logfc <- function(enrich_df, deg_df) {
   enrich_df %>%
-    select(ID, Description, geneID, p.adjust) %>%
+    dplyr::select(ID, Description, geneID, p.adjust) %>%
     separate_rows(geneID, sep = "/") %>%
     left_join(deg_df, by = c("geneID" = "...1")) %>%
     group_by(ID, Description, p.adjust) %>%
@@ -440,8 +439,8 @@ deg.bar.diverging <- readRDS("~/haifa/cayman/rna/mapping/github/fin/deg.bar.RDS"
 
 
 combined_go <- (deg.bar.diverging | clust.barplot) +
-  plot_layout(widths = c(1.2, 0.8), heights = c(1, 1)) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '', tag_suffix = '')
+  plot_layout(widths = c(1.2, 0.8), heights = c(1, 1)) &
+  plot_annotation(tag_levels = 'A')
 
 #theme(plot.margin = margin(10, 10, 10, 10))
 combined_go
@@ -449,6 +448,19 @@ combined_go
 ggsave("~/haifa/cayman/rna/mapping/github/fin/combined.fig5.jpg", combined_go, width = 12, height =7)
 ggsave("~/haifa/cayman/rna/mapping/github/fin/combined.fig5.pdf", combined_go, width = 12, height =7)
 
+#### combine for revision ####
+
+biomin_bar <- readRDS("~/haifa/cayman/rna/mapping/github/fin/biomin.bar.RDS")
+
+combined_go <- ( clust.barplot | biomin_bar) +
+  plot_annotation(tag_levels = 'A')&
+  theme(plot.tag = element_text(face = "bold")) # Adjust s
+
+#theme(plot.margin = margin(10, 10, 10, 10))
+combined_go
+# display it
+ggsave("~/haifa/cayman/rna/mapping/github/fin/combined.fig6.revision.jpg", combined_go, width = 13, height =6.5)
+ggsave("~/haifa/cayman/rna/mapping/github/fin/combined.fig6.revision.pdf", combined_go, width = 13, height =6.5)
 
 #### combined fig 5 and 6 ####
 biomin.bar <- readRDS("~/haifa/cayman/rna/mapping/github/fin/biomin.bar.RDS")
