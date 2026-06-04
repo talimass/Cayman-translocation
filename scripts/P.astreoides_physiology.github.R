@@ -21,18 +21,23 @@ library(patchwork)
 library(goft)
 library(boot)
 library(ggpattern)
-
+library(lme4)
+library(lmerTest)
+library(fitdistrplus)
 # working directory
 setwd("~/haifa/cayman/P.astreoides_physiology/github3/")
-load("physio5.RData")
+save.image("physio.revision.R")
+load("physio.revision.R")
 ##### physiology #####
 # opening file, checking, replacing characters to vectors when needed
-physio <- read.csv('Physiology_P.astreoides2.csv', stringsAsFactors = F)
+physio <- read.csv('Physiology_P.astreoides2_revision.csv', stringsAsFactors = F)
 str(physio)
 #View(physio)
 physio$Treatment = factor(physio$Treatment, levels = c("S", "SS", "SD", "D", "DD", "DS"))
 physio$Coral = factor(physio$Coral, levels = c("MF", "CC"))
 physio$Month = factor(physio$Month, levels = c("Nov", "July"))
+physio$colony_id <- paste(physio$colony, physio$origin, physio$Coral, sep = "_")
+physio$coral_id <- paste(physio$coral.number, physio$origin, physio$Coral, sep = "_")
 physio <- na.omit(physio)
 # adding the same theme to each plot
 mytheme = theme_bw()+
@@ -79,34 +84,42 @@ ggplot(physio, aes(x = sqrt(Protein.conc.ug.ml))) +
   geom_density() +
   mytheme
 
-# performing anova + Tukey post-hoc 
+# lmer
+# mixed model
+model <- lmer(sqrt(Protein.conc.ug.ml) ~ Treatment + (1 | colony_id), data = physio)
 
-model <- lm(data = physio, sqrt(Protein.conc.ug.ml) ~ Treatment)
-# checking summary and plots
 summary(model)
-#plot(model) # Q-Q plots - checking for heteroscedasticity of residuals - look very good
-# data is ok for anova
 anova(model)
+nobs(model)
+# diagnostics
+plot(model)
+table(physio$Treatment)
+levels(physio$Treatment)
+qqnorm(resid(model))
+qqline(resid(model))
 
-# posthoc test - pairwise comparisons (Tukey test)
-posthoc <- TukeyHSD(aov(model))
-posthoc$Treatment # the table of pairwise comparisons
-# assigning letters to groups ("compact letter display")
-letters <- multcompLetters4(aov(model), posthoc) 
-# creating df of letters and their positions to add them to the plot
-letters.df <- data.frame(letters$Treatment$Letters)
-colnames(letters.df)[1] <- "Letter" 
+# posthoc Tukey comparisons
+emm <- emmeans(model, ~ Treatment)
+
+posthoc <- pairs(emm, adjust = "tukey")
+# posthoc test
+posthoc <- emmeans(model, pairwise ~ Treatment, adjust = "tukey")
+p_values <- as.data.frame(posthoc$contrasts)
+d <- p_values$p.value < 0.05
+Names <- gsub(" ", "", p_values$contrast)
+names(d) <- Names
+# compact letter display
+letters <- multcompLetters(d)
+letters.df <- data.frame(letters$Letters)
+colnames(letters.df)[1] <- "Letter"
 letters.df$Treatment <- rownames(letters.df) 
 placement <- physio %>% 
   group_by(Treatment) %>%
-  summarise(quantile(Protein.conc.ug.ml)[4])
+  summarise(quantile(Protein.conc.ug.ml, na.rm = TRUE)[4])
 colnames(placement)[2] <- "Placement.Value"
-letters.df <- left_join(letters.df, placement)
+letters.df <- left_join(letters.df, placement) 
 
 # boxplot with letters
-# groups with the same letter are not significantly different
-# groups that are significantly different get different letters
-
 protein.anova <- ggplot(physio, aes(y = (Protein.conc.ug.ml), x = Treatment)) +
   geom_boxplot_pattern(
     aes(fill = Treatment, pattern = Treatment), outlier.size = 0.5, fatten = 0.5, alpha = 1,
@@ -137,25 +150,38 @@ ggplot(physio, aes(x = sqrt(cell.cm))) +
   geom_density() +
   mytheme
 
-# anova + Tukey post-hoc 
-model <- lm(data = physio, sqrt(cell.cm) ~ Treatment)
-summary(model)  
-#plot(model) # Q-Q plot is ok
-anova(model) # Coral is not significant factor 
+# lmer
+# mixed model
+model <- lmer(sqrt(cell.cm) ~ Treatment + (1 | colony_id), data = physio)
 
-# Tukey posthoc test
-posthoc <- TukeyHSD(aov(model)) 
-posthoc$Coral # shows that CC is the same as MF
-posthoc$Treatment # shows pairwise comparisons taking into account Coral in the model
-letters <- multcompLetters4(aov(model), posthoc)
-letters.df <- data.frame(letters$Treatment$Letters)
+summary(model)
+anova(model)
+nobs(model)
+# diagnostics
+plot(model)
+qqnorm(resid(model))
+qqline(resid(model))
+
+# posthoc Tukey comparisons
+emm <- emmeans(model, ~ Treatment)
+
+posthoc <- pairs(emm, adjust = "tukey")
+# posthoc test
+posthoc <- emmeans(model, pairwise ~ Treatment, adjust = "tukey")
+p_values <- as.data.frame(posthoc$contrasts)
+d <- p_values$p.value < 0.05
+Names <- gsub(" ", "", p_values$contrast)
+names(d) <- Names
+# compact letter display
+letters <- multcompLetters(d)
+letters.df <- data.frame(letters$Letters)
 colnames(letters.df)[1] <- "Letter"
 letters.df$Treatment <- rownames(letters.df) 
-placement <- physio %>%
+placement <- physio %>% 
   group_by(Treatment) %>%
   summarise(quantile(cell.cm, na.rm = TRUE)[4])
 colnames(placement)[2] <- "Placement.Value"
-letters.df <- left_join(letters.df, placement)
+letters.df <- left_join(letters.df, placement) 
 
 # boxplot with letters
 
@@ -168,13 +194,11 @@ cellcm.anova <- ggplot(physio, aes(y = (cell.cm), x = Treatment)) +
   labs(y= ~cells ~x10^5 ~cm^-2, title = "Symbiont cell count per surface area")+
   mytheme +
   guides(fill = FALSE, pattern = FALSE) +
- # scale_x_discrete(labels = c("10", "10→10", "10→40", "40", "40→40", "40→10")) +
+  # scale_x_discrete(labels = c("10", "10→10", "10→40", "40", "40→40", "40→10")) +
   geom_text(data = letters.df, aes(x = Treatment, y = Placement.Value, label = Letter),
             size = 3, color = "black", hjust = -0.5, vjust = -0.8, fontface = "italic")
 
 cellcm.anova
-#ggsave("cellcm.anova.jpg", p.cellcm, width = 4, height = 4)
-
 
 
 #### chl per cell ####
@@ -190,19 +214,38 @@ gamma_test(physio$chl.cell) # doesn't fit, p.value < 0.05
 # inverse gaussian
 ig_test(physio$chl.cell, method = "transf") # fit
 
-# GLM with inverse gaussian family
+# lmer
+
+# GLMM with inverse gaussian family
 # trying two factors
-model <- glm(chl.cell ~ Treatment * Coral, data = physio, family = inverse.gaussian(link = "log"))
-model1 <- glm(chl.cell ~ Treatment + Coral, data = physio, family = inverse.gaussian(link = "log"))
-AIC(model, model1) # model is better
-model2 <- glm(chl.cell ~ Treatment, data = physio, family = inverse.gaussian(link = "log"))
-AIC(model, model2) # model 2 is better
-summary(model2)
-plot(model2)
-anova(model2, test = "Chisq")
+model <- glmer(
+  chl.cell ~ Treatment + (1 | colony_id),
+  data = physio,
+  family = inverse.gaussian(link = "log")
+)
+#model1 <- glm(chl.cell ~ Treatment + Coral, data = physio, family = inverse.gaussian(link = "log"))
+#AIC(model, model1) # model is better
+##model2 <- glm(chl.cell ~ Treatment, data = physio, family = inverse.gaussian(link = "log"))
+#AIC(model, model2) # model 2 is better
+summary(model)
+plot(model)
+anova(model)
+car::Anova(model, type = 3)
+nobs(model)
+
+# reduced/null model
+model_reduced <- glmer(
+  chl.cell ~ 1 + (1 | colony_id),
+  data = physio,
+  family = inverse.gaussian(link = "log")
+)
+
+# likelihood-ratio test
+anova(model_reduced, model, test = "Chisq")
+
 
 # posthoc test
-posthoc <- emmeans(model2, pairwise ~ Treatment, adjust = "tukey")
+posthoc <- emmeans(model, pairwise ~ Treatment, adjust = "tukey")
 p_values <- as.data.frame(posthoc$contrasts)
 d <- p_values$p.value < 0.05
 Names <- gsub(" ", "", p_values$contrast)
@@ -217,7 +260,7 @@ placement <- physio %>%
   summarise(quantile(chl.cell, na.rm = TRUE)[4])
 colnames(placement)[2] <- "Placement.Value"
 letters.df <- left_join(letters.df, placement) 
-letters.df[6, 3] <- 30 # changing this position because of the outlier
+letters.df[6, 3] <- 21 # changing this position because of the outlier
 
 # boxplot with letters
 
@@ -236,18 +279,18 @@ chlcell = ggplot(physio, aes(y = chl.cell, x = Treatment)) +
             size = 3, color = "black", hjust = -0.5, vjust = -0.7, fontface = "italic")
 
 chlcell
-
 ##### photophysiology #####
 
-fire.data <- read.csv("FIRe_tranplantation_exsitu_Nov2022_July2023.github.csv")
+fire.data <- read.csv("FIRe_tranplantation_exsitu_Nov2022_July2023.github_revision.csv")
 fire.data$Treatment = factor(fire.data$Treatment, levels = c("S", "SS", "SD", "D", "DD", "DS"))
 fire.data$Coral <- as.factor(fire.data$Coral)
+fire.data$coral_id <- paste(fire.data$coral.number, fire.data$origin, fire.data$Coral, sep = "_")
 fire.data <- na.omit(fire.data)
 
 # reduce dataset 
 fire <- fire.data %>%
   drop_na() %>%
-  group_by(coral.number, Treatment, Coral) %>%
+  group_by(coral.number, Treatment, Coral, coral_id) %>%
   summarise(
     `Fv.Fm` = mean(`Fv.Fm`, na.rm = TRUE),
     Sigma = mean(Sigma, na.rm = TRUE),
@@ -256,6 +299,20 @@ fire <- fire.data %>%
     .groups = "drop"  # optional: ungroups the result
   )
 
+fire <- left_join(
+  fire,
+  physio %>%
+    dplyr::select(coral_id, colony_id) %>%
+    distinct(),
+  by = "coral_id"
+)
+
+fire[65, 9] <- "5_D_MF"
+fire[72, 9] <- "5_S_MF"
+fire[73, 9] <- "1_S_CC"
+fire[89, 9] <-  "3_D_CC"
+fire[90, 9] <- "5_D_CC"
+  
 # checking the effect of location
 vars <- fire %>% dplyr::select(Fv.Fm, Sigma, Pmax.e.s, p)
 adonis_result <- adonis2(vars ~ Coral, data = fire, method = "euclidean", permutations = 999)
@@ -268,19 +325,35 @@ print(adonis_result)
 shapiro.test((fire$Sigma))  # data is normal
 leveneTest(Sigma~Treatment, d=fire) # heteroscedasticity of variance (p.value < 0.5)
 
-# welch anova
-oneway.test(data = fire, Sigma ~ Treatment, var.equal = TRUE)
 
-# posthoc
-games_results <- games_howell_test(fire, Sigma ~ Treatment, conf.level = 0.95, detailed = FALSE)
+# lmer
+library(nlme)
+model_sigma <- lme(
+  Sigma ~ Treatment,
+  random = ~1 | colony_id,
+  weights = varIdent(form = ~1 | Treatment),
+  data = fire,
+  method = "REML"
+)
 
-games_results$comparison <- paste0(games_results$group1,'-',games_results$group2)
-# preparing pairwise p-values matrix
-p_matrix <- games_results$p.adj.signif<0.05
-names(p_matrix) <- games_results$comparison
-# assigning letters to groups ("compact letter display")
-letters <- multcompLetters(p_matrix)
-# creating df of letters and their positions to add them to the plot
+summary(model_sigma)
+anova(model_sigma)
+
+# diagnostics
+plot(model_sigma)
+qqnorm(resid(model_sigma, type = "normalized"))
+qqline(resid(model_sigma, type = "normalized"))
+
+# posthoc Tukey comparisons
+
+
+posthoc <- emmeans(model_sigma, pairwise ~ Treatment, adjust = "tukey")
+p_values <- as.data.frame(posthoc$contrasts)
+d <- p_values$p.value < 0.05
+Names <- gsub(" ", "", p_values$contrast)
+names(d) <- Names
+# compact letter display
+letters <- multcompLetters(d)
 letters.df <- data.frame(letters$Letters)
 colnames(letters.df)[1] <- "Letter"
 letters.df$Treatment <- rownames(letters.df) 
@@ -289,10 +362,6 @@ placement <- fire %>%
   summarise(quantile(Sigma, na.rm = TRUE)[4])
 colnames(placement)[2] <- "Placement.Value"
 letters.df <- left_join(letters.df, placement) 
-
-# boxplot with letters
-# groups with the same letter are the same
-# groups that are significantly different get different letters
 
 sigma = ggplot(fire, aes(y = Sigma, x = Treatment)) +
   geom_boxplot_pattern(
@@ -308,6 +377,7 @@ sigma = ggplot(fire, aes(y = Sigma, x = Treatment)) +
             size = 3, color = "black", hjust = -0.5, vjust = -0.8, fontface = "italic")
 
 sigma
+
 #### Quantum yield of photochemistry in PSII ####
 
 # checking for normality and homoscedasticity
@@ -315,20 +385,32 @@ sigma
 shapiro.test((fire$Fv.Fm))  # data is not normal (p.value < 0.05)
 leveneTest(Fv.Fm~Treatment, d=fire) # heteroscedasticity of variance (p.value < 0.05)
 
-# Kruskal-Wallis test for nonparametric data
-kruskal.test(Fv.Fm ~ Treatment, data = fire) #  significant
 
-# posthoc: Dunn's Test with Bonferroni correction for p-values
-dunn.res <- dunnTest(Fv.Fm ~ Treatment,
-                     data=fire,
-                     method="bonferroni")
 
-diff <- dunn.res$res$P.adj < 0.05
-Names <- gsub(" ", "", dunn.res$res$Comparison)
-names(diff) <- Names 
-# assigning letters to groups ("compact letter display")
-letters <- multcompLetters(diff)
-# creating df of letters and their positions to add them to the plot
+# lmer
+model_fvfm <- lme(
+  Fv.Fm ~ Treatment,
+  random = ~1 | colony_id,
+  weights = varIdent(form = ~1 | Treatment),
+  data = fire,
+  method = "REML"
+)
+
+qqnorm(resid(model_fvfm, type = "normalized"))
+qqline(resid(model_fvfm, type = "normalized"))
+
+hist(resid(model_fvfm, type = "normalized"))
+plot(model_fvfm)
+# posthoc Tukey comparisons
+anova(model_fvfm)
+
+posthoc <- emmeans(model_fvfm, pairwise ~ Treatment, adjust = "tukey")
+p_values <- as.data.frame(posthoc$contrasts)
+d <- p_values$p.value < 0.05
+Names <- gsub(" ", "", p_values$contrast)
+names(d) <- Names
+# compact letter display
+letters <- multcompLetters(d)
 letters.df <- data.frame(letters$Letters)
 colnames(letters.df)[1] <- "Letter"
 letters.df$Treatment <- rownames(letters.df) 
@@ -356,24 +438,43 @@ FvFm = ggplot(fire, aes(y = Fv.Fm, x = Treatment)) +
             size = 3, color = "black", hjust = -0.5, vjust = -0.8, fontface = "italic")
 
 FvFm
+
 #### Maximum photosynthetic rate ####
 # checking for normality and homoscedasticity
 shapiro.test((fire$Pmax.e.s))  # data is not normal (p.value < 0.05)
 leveneTest(Pmax.e.s~Treatment, d=fire) # heteroscedasticity of variance (p.value < 0.05)
 
-kruskal.test(Pmax.e.s ~ Treatment, data = fire) #  significant
+#lmer
 
-# posthoc: Dunn's Test with Bonferroni correction for p-values
-dunn.res <- dunnTest(Pmax.e.s ~ Treatment,
-                     data=fire,
-                     method="bonferroni")
 
-diff <- dunn.res$res$P.adj < 0.05
-Names <- gsub(" ", "", dunn.res$res$Comparison)
-names(diff) <- Names 
-# assigning letters to groups ("compact letter display")
-letters <- multcompLetters(diff)
-# creating df of letters and their positions to add them to the plot
+descdist(fire$Pmax.e.s, boot = 1000)
+
+fire %>%
+  arrange(desc(Pmax.e.s)) %>%
+  dplyr::select(coral_id, colony_id, Treatment, Pmax.e.s) %>%
+  head(10)
+
+model_pmax <- lme(
+  log(Pmax.e.s) ~ Treatment,
+  random = ~1 | colony_id,
+  weights = varIdent(form = ~1 | Treatment),
+  data = fire,
+  method = "REML"
+)
+qqnorm(resid(model_pmax, type = "normalized"))
+qqline(resid(model_pmax, type = "normalized"))
+
+plot(model_pmax)
+
+anova(model_pmax)
+
+posthoc <- emmeans(model_pmax, pairwise ~ Treatment, adjust = "tukey")
+p_values <- as.data.frame(posthoc$contrasts)
+d <- p_values$p.value < 0.05
+Names <- gsub(" ", "", p_values$contrast)
+names(d) <- Names
+# compact letter display
+letters <- multcompLetters(d)
 letters.df <- data.frame(letters$Letters)
 colnames(letters.df)[1] <- "Letter"
 letters.df$Treatment <- rownames(letters.df) 
@@ -383,9 +484,6 @@ placement <- fire %>%
 colnames(placement)[2] <- "Placement.Value"
 letters.df <- left_join(letters.df, placement) 
 
-# boxplot with letters
-# groups with the same letter are the same
-# groups that are significantly different get different letters
 
 Pmax = ggplot(fire, aes(y = Pmax.e.s, x = Treatment)) +
   geom_boxplot_pattern(
@@ -407,19 +505,31 @@ Pmax
 shapiro.test((fire$p))  # data is normal (p.value > 0.05)
 leveneTest(p~Treatment, d=fire) # heteroscedasticity
 
-# welch anova
-oneway.test(data = fire, p ~ Treatment, var.equal = TRUE)
 
-# posthoc
-games_results <- games_howell_test(fire, p ~ Treatment, conf.level = 0.95, detailed = FALSE)
+# lmer
+model_fvfm <- lme(
+  p ~ Treatment,
+  random = ~1 | colony_id,
+  weights = varIdent(form = ~1 | Treatment),
+  data = fire,
+  method = "REML"
+)
 
-games_results$comparison <- paste0(games_results$group1,'-',games_results$group2)
-# preparing pairwise p-values matrix
-p_matrix <- games_results$p.adj.signif<0.05
-names(p_matrix) <- games_results$comparison
-# assigning letters to groups ("compact letter display")
-letters <- multcompLetters(p_matrix)
-# creating df of letters and their positions to add them to the plot
+anova(model_fvfm)
+qqnorm(resid(model_fvfm, type = "normalized"))
+qqline(resid(model_fvfm, type = "normalized"))
+
+hist(resid(model_fvfm, type = "normalized"))
+plot(model_fvfm)
+# posthoc Tukey comparisons
+
+posthoc <- emmeans(model_fvfm, pairwise ~ Treatment, adjust = "tukey")
+p_values <- as.data.frame(posthoc$contrasts)
+d <- p_values$p.value < 0.05
+Names <- gsub(" ", "", p_values$contrast)
+names(d) <- Names
+# compact letter display
+letters <- multcompLetters(d)
 letters.df <- data.frame(letters$Letters)
 colnames(letters.df)[1] <- "Letter"
 letters.df$Treatment <- rownames(letters.df) 
@@ -428,10 +538,6 @@ placement <- fire %>%
   summarise(quantile(p, na.rm = TRUE)[4])
 colnames(placement)[2] <- "Placement.Value"
 letters.df <- left_join(letters.df, placement) 
-
-# boxplot with letters
-# groups with the same letter are the same
-# groups that are significantly different get different letters
 
 p = ggplot(fire, aes(y = p, x = Treatment)) +
   geom_boxplot_pattern(
@@ -448,40 +554,202 @@ p = ggplot(fire, aes(y = p, x = Treatment)) +
 
 p
 
+
+#### corallite density ####
+corallite <- read.csv('../Polyp_size.csv', stringsAsFactors = F)
+str(corallite)
+
+# Set treatment order
+corallite$Treatment <- factor(corallite$Treatment, levels = c("SS", "SD", "DD", "DS"))
+
+# Make coral number a factor
+corallite$Coral.number <- factor(corallite$Coral.number)
+
+corallite_dens <- na.omit(corallite)
+
+m_pois <- glm(
+  Polyp.density.4_95.2mm ~ Treatment,
+  data = corallite_dens,
+  family = poisson(link = "log")
+)
+
+summary(m_pois)
+nobs(m_pois)
+dispersion <- sum(residuals(m_pois, type = "pearson")^2) / df.residual(m_pois)
+dispersion
+
+
+m_null <- glm(
+  Polyp.density.4_95.2mm ~ 1,
+  data = corallite_dens,
+  family = poisson(link = "log")
+)
+
+anova(m_null, m_pois, test = "Chisq")
+
+emm_pois <- emmeans(m_pois, ~ Treatment, type = "response")
+emm_pois
+pairs(emm_pois)
+
+# boxplot with letters
+# groups with the same letter are the same
+# groups that are significantly different get different letters
+
+corallite_density = ggplot(corallite_dens, aes(y = Polyp.density.4_95.2mm, x = Treatment)) +
+  geom_boxplot_pattern(
+    aes(fill = Treatment, pattern = Treatment), outlier.size = 0.5, fatten = 0.5, alpha = 1,
+    lwd = 0.4, pattern_fill = "gray", pattern_density = 0.08, pattern_spacing = 0.02) +
+  scale_fill_manual(values = fill_colors) +
+  scale_pattern_manual(values = fill_patterns) +
+  labs(y="Number of polyps per 5 mm²") +
+  mytheme +
+  guides(fill = FALSE, pattern = FALSE) 
+corallite_density
+
+
+#### corallite diameter ####
+
+corallite <- read.csv('../Polyp_size_260526.csv', stringsAsFactors = F)
+str(corallite)
+
+# Set treatment order
+corallite$Treatment <- factor(corallite$Treatment, levels = c("SS", "SD", "DD", "DS"))
+
+# Make coral number a factor
+corallite$Coral.number <- factor(corallite$Coral.number)
+
+hist(corallite$Corallite.Diameter.mm)
+shapiro.test(corallite$Corallite.Diameter.mm) # not normal but we'll check residuals after
+leveneTest(Corallite.Diameter.mm~Treatment, d=corallite) # heteroscedasticity
+
+shapiro.test(log(corallite$Corallite.Diameter.mm)) # not normal but we'll check residuals after
+leveneTest(log(Corallite.Diameter.mm)~Treatment, d=corallite) # heteroscedasticity
+
+# Linear Mixed-Effects Models, diff polyps = random effect
+
+model_corallite_log <- lmer(
+  log(Corallite.Diameter.mm) ~ Treatment + (1 | Coral.number),
+  data = corallite
+)
+
+shapiro.test(resid(model_corallite_log))
+
+qqnorm(resid(model_corallite_log))
+qqline(resid(model_corallite_log))
+
+plot(model_corallite_log)
+anova(model_corallite_log)
+nobs(model_corallite_log)
+# not significant
+
+
+corallite_plot <- ggplot(corallite, aes(y = (Corallite.Diameter.mm), x = Treatment)) +
+  geom_boxplot_pattern(
+    aes(fill = Treatment, pattern = Treatment), outlier.size = 0.5, fatten = 0.5, alpha = 1,
+    lwd = 0.4, pattern_fill = "gray", pattern_density = 0.08, pattern_spacing = 0.02) +
+  scale_fill_manual(values = fill_colors) +
+  scale_pattern_manual(values = fill_patterns) +
+  #labs(y= "mm", title = "Skeletal extension rate")+
+  labs(y= "mm")+
+  mytheme +
+  guides(fill = FALSE, pattern = FALSE) 
+corallite_plot
+
+
+# ggsave("5/corallite_diameter.jpg", corallite_plot_mean,  width = 6, height = 6)
+# ggsave("5/corallite_diameter.pdf", corallite_plot_mean,  width = 6, height = 6)
+# ggsave("5/corallite_diameter3.jpg", corallite_plot,  width = 6, height = 6)
+# ggsave("5/corallite_diameter3.pdf", corallite_plot,  width = 6, height = 6)
+# 
+
+
+corallite_combined <-  (corallite_plot + corallite_density) +
+  plot_annotation(tag_levels = 'A')& 
+  theme(plot.tag = element_text(face = "bold")) 
+
+corallite_combined <-
+  corallite_combined&
+  theme(plot.title = element_blank(), axis.title = element_text(size = 8),
+        axis.text = element_text(size = 6),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 7),
+        text = element_text(size = 7))
+
+
+
+# ggsave("5/corallite_all.jpg", corallite_combined,  width = 8, height = 4)
+# ggsave("5/corallite_all.pdf", corallite_combined,  width = 8, height = 4)
+
+
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_figS5.pdf",
+  plot = corallite_combined,
+  width = 18.4,
+  height = 9,
+  units = "cm",
+  device = "pdf",
+  useDingbats = FALSE
+)
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_figS5.jpg",
+  plot = corallite_combined,
+  width = 18.4,
+  height = 9,
+  units = "cm",
+  device = "jpg"
+)
 #### growth ####
 
-growth <- read.csv('../Alizarin-mark/growth.csv', stringsAsFactors = F)
+growth <- read.csv('../Alizarin-mark/growth_revision.csv', stringsAsFactors = F)
 str(growth)
 growth$condition = factor(growth$condition, levels = c("SS", "SD", "DD", "DS"))
+#growth$Coral <- as.factor(growth$Coral)
+growth$coral_id <- paste(growth$sample, growth$origin, growth$site, sep = "_")
+
+growth <- left_join(
+  growth,
+  physio %>%
+    dplyr::select(coral_id, colony_id) %>%
+    distinct(),
+  by = "coral_id"
+)
 
 
 shapiro.test(sqrt(growth$size)) # data is normal (p.value > 0.05)
 leveneTest(sqrt(size)~condition,d=growth)  # no heteroscedasticity of variance (p.value > 0.05)
 
-# performing anova + Tukey post-hoc 
-growth <- na.omit(growth)
-model <- lm(data = growth, sqrt(size) ~ condition)
-# checking summary and plots
+# lmer
+# mixed model
+model <- lmer(sqrt(size) ~ condition + (1 | colony_id), data = growth)
+
 summary(model)
-
-#plot(model) # Q-Q plots - checking for heteroscedasticity of residuals - look very good
-# data is ok for anova
 anova(model)
+nobs(model)
+# diagnostics
+plot(model)
+qqnorm(resid(model))
+qqline(resid(model))
 
-# posthoc test - pairwise comparisons (Tukey test)
-posthoc <- TukeyHSD(aov(model))
-posthoc$condition # the table of pairwise comparisons
-# assigning letters to groups ("compact letter display")
-letters <- multcompLetters4(aov(model), posthoc) 
-# creating df of letters and their positions to add them to the plot
-letters.df <- data.frame(letters$condition$Letters)
-colnames(letters.df)[1] <- "Letter" 
+# posthoc Tukey comparisons
+emm <- emmeans(model, ~ condition)
+
+posthoc <- pairs(emm, adjust = "tukey")
+# posthoc test
+posthoc <- emmeans(model, pairwise ~ condition, adjust = "tukey")
+p_values <- as.data.frame(posthoc$contrasts)
+d <- p_values$p.value < 0.05
+Names <- gsub(" ", "", p_values$contrast)
+names(d) <- Names
+# compact letter display
+letters <- multcompLetters(d)
+letters.df <- data.frame(letters$Letters)
+colnames(letters.df)[1] <- "Letter"
 letters.df$condition <- rownames(letters.df) 
 placement <- growth %>% 
   group_by(condition) %>%
-  summarise(quantile(size)[4])
+  summarise(quantile(size, na.rm = TRUE)[4])
 colnames(placement)[2] <- "Placement.Value"
-letters.df <- left_join(letters.df, placement)
+letters.df <- left_join(letters.df, placement) 
 
 # boxplot with letters
 # groups with the same letter are not significantly different
@@ -497,7 +765,7 @@ growthplot <- ggplot(growth, aes(y = (size), x = condition)) +
   labs(y= "mm")+
   mytheme +
   guides(fill = FALSE, pattern = FALSE) +
- # scale_x_discrete(labels = c("10→10", "10→40", "40→40", "40→10" ))+
+  # scale_x_discrete(labels = c("10→10", "10→40", "40→40", "40→10" ))+
   geom_text(data = letters.df, aes(x = condition, y = Placement.Value, label = Letter),
             size = 3, color = "black", hjust = -0.5, vjust = -0.8, fontface = "italic")
 
@@ -575,7 +843,37 @@ summary_growth <- growth %>%
 summary_growth
 
 
-# band in mm, combine 
+# band in mm, combine
+model <- lmer(sqrt(band) ~ condition + (1 | colony_id), data = growth)
+
+summary(model)
+anova(model)
+nobs(model)
+# diagnostics
+plot(model)
+qqnorm(resid(model))
+qqline(resid(model))
+
+# posthoc Tukey comparisons
+emm <- emmeans(model, ~ condition)
+
+posthoc <- pairs(emm, adjust = "tukey")
+# posthoc test
+posthoc <- emmeans(model, pairwise ~ condition, adjust = "tukey")
+p_values <- as.data.frame(posthoc$contrasts)
+d <- p_values$p.value < 0.05
+Names <- gsub(" ", "", p_values$contrast)
+names(d) <- Names
+# compact letter display
+letters <- multcompLetters(d)
+letters.df <- data.frame(letters$Letters)
+colnames(letters.df)[1] <- "Letter"
+letters.df$condition <- rownames(letters.df) 
+placement <- growth %>% 
+  group_by(condition) %>%
+  summarise(quantile(size, na.rm = TRUE)[4])
+colnames(placement)[2] <- "Placement.Value"
+letters.df <- left_join(letters.df, placement) 
 model <- lm(data = growth, sqrt(band) ~ condition)
 # checking summary and plots
 summary(model)
@@ -690,17 +988,40 @@ ggsave("5/band_cm_year.pdf", growthplot,  width = 4, height = 4)
 
 combined_phys <- (
   protein.anova | cellcm.anova | chlcell) / (FvFm | Pmax )/( sigma | p)  +
-  plot_annotation(tag_levels = "A")
+  plot_annotation(tag_levels = "A")& 
+  theme(plot.tag = element_text(face = "bold", size = 9)) 
 
 combined_phys <- 
   combined_phys &
-  theme(plot.title = element_blank())
+  theme(plot.title = element_blank(), axis.title = element_text(size = 8),
+        axis.text = element_text(size = 6),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 7),
+        text = element_text(size = 7))
 
 combined_phys
 
+
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_figS6.pdf",
+  plot = combined_phys,
+  width = 18.4,
+  height = 19.9,
+  units = "cm",
+  device = "pdf",
+  useDingbats = FALSE
+)
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_figS6.jpg",
+  plot = combined_phys,
+  width = 18.4,
+  height = 19.9,
+  units = "cm",
+  device = "jpg"
+)
 # display it
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined3_notitles.jpg", combined_phys, width = 9, height =11)
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined3_notitles.pdf", combined_phys, width = 9, height =11)
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined3_notitles_revision.jpg", combined_phys, width = 9, height =11)
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined3_notitles_revision.pdf", combined_phys, width = 9, height =11)
 
 
 #### normalizing data before pca ####
@@ -814,55 +1135,109 @@ loadings_physio <- loadings_physio %>%
   )
 
 # --- Plot PCA ---
+pca_scores$PC1 <- -pca_scores$PC1
+loadings_physio$PC1 <- -loadings_physio$PC1
+vectors_par$PC1 <- -vectors_par$PC1
+
+pt_to_mm <- function(pt) pt / 2.845
+
+treatment_colors <- c(
+  "S" = "#b495ff",
+  "SS" = "#e16cb2",
+  "SD" = "#4d68a4",
+  "D" = "#9aced3",
+  "DD" = "#58b799",
+  "DS" = "#f97642"
+)
+
 pcap <- ggplot(pca_scores, aes(x = PC1, y = PC2, color = Treatment)) +
-  geom_point(size = 1.5) +
+  geom_point(size = 1) +
   #stat_ellipse(level = 0.95) +
   # Physiological loadings
   geom_segment(data = loadings_physio, aes(x = 0, y = 0, xend = PC1, yend = PC2),
-               arrow = arrow(length = unit(0.2, "cm")), color = "black") +
+               arrow = arrow(length = unit(0.1, "cm")), color = "black", 
+               linewidth = 0.3) +
   geom_text(data = loadings_physio, aes(x = PC1, y = PC2, label = Label),
-            vjust = -0.5, hjust = 0.5, size = 3, color = "black") +
+            vjust = -0.5, hjust = 0.5, size = pt_to_mm(7), color = "black") +
   # Environmental vectors (fitted)
   geom_segment(data = vectors_par, aes(x = 0, y = 0, xend = PC1, yend = PC2),
-               arrow = arrow(length = unit(0.2, "cm")), color = "red") +
+               arrow = arrow(length = unit(0.1, "cm")), color = "red", 
+               linewidth = 0.3) +
   geom_text(data = vectors_par, aes(x = PC1, y = PC2, label = Parameter),
-            vjust = -0.5, hjust = 0.5, size = 3, color = "red") +
+            vjust = -0.5, hjust = 0.5, size = pt_to_mm(7), color = "red") +
+  scale_color_manual(
+    values = treatment_colors,
+    name = "Treatment"
+  )+
   labs(
        x = paste0("PC1 (", var_explained[1], "%)"),
        y = paste0("PC2 (", var_explained[2], "%)")) +
   theme_minimal()
 
 pcap
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/pca_nov2.jpg", pcap, width = 8, height = 6)
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/pca_nov2_revision.jpg", pcap, width = 8, height = 6)
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/pca_nov2_revision.jpg", pcap, width = 8, height = 6)
 
 #### PCA of July ####
 # prepare data
-names(growth) <- c("growth", "coral.number", "Treatment", "Coral")
+names(growth) <- c("growth", "coral.number", "Treatment", "Coral", "band", "rest", "origin", "sample_id", "colony_id")
+
 physio.growth <- left_join(joined_df, growth,  by = c("coral.number", "Treatment", "Coral"))
 
-physio.growth %>%
-  drop_na() %>%
-  dplyr::select(Treatment, Protein.conc.ug.ml, cell.cm, chl.cell, Fv.Fm, Sigma, Pmax.e.s, p, growth)  %>%
+# join everything into one table first
+pca.full <- joined_df %>%
+  left_join(growth, by = c("coral.number", "Treatment", "Coral")) %>%
+  left_join(temp_par, by = c("coral.number", "Treatment", "Coral")) %>%
+  dplyr::select(
+    Treatment,
+    Protein.conc.ug.ml,
+    cell.cm,
+    chl.cell,
+    Fv.Fm,
+    Sigma,
+    Pmax.e.s,
+    p,
+    growth,
+    temperature,
+    PAR
+  ) %>%
+  drop_na()
+
+# transformed physiological data for PCA
+pca.physio <- pca.full %>%
   mutate(
     cell.cm = sqrt(cell.cm),
     Protein.conc.ug.ml = sqrt(Protein.conc.ug.ml),
     Pmax.e.s = log10(Pmax.e.s),
-    chl.cell = log10(chl.cell)) -> pca.physio
-str(pca.physio)
-# Keep only numeric variables for PCA
-param_data <- pca.physio[, -which(colnames(pca.physio) %in% c("Treatment"))]
-#  PCA
-pca_result <- rda(param_data, scale = TRUE)   # RDA with no constraints = PCA
+    chl.cell = log10(chl.cell)
+  )
+pca.physio <- pca.physio %>%
+  mutate(Treatment = factor(Treatment, levels = c("SS", "SD", "DD", "DS")))
+# PCA variables only
+param_data <- pca.physio %>%
+  dplyr::select(
+    Protein.conc.ug.ml,
+    cell.cm,
+    chl.cell,
+    Fv.Fm,
+    Sigma,
+    Pmax.e.s,
+    p,
+    growth
+  )
 
-# Percent variance explained
+# PCA
+pca_result <- rda(param_data, scale = TRUE)
+
+# percent variance explained
 eig_vals <- eigenvals(pca_result)
 var_explained <- round(100 * eig_vals / sum(eig_vals), 1)
 
-# Extract sample scores
+# sample scores
 pca_scores <- as.data.frame(scores(pca_result, display = "sites", choices = 1:3))
 pca_scores$Treatment <- pca.physio$Treatment
 
-# Extract PCA loadings (physiological variables) 
+# physiological loadings
 loadings_physio <- as.data.frame(scores(pca_result, display = "species", choices = 1:3))
 loadings_physio$Parameter <- rownames(loadings_physio)
 
@@ -880,42 +1255,61 @@ loadings_physio <- loadings_physio %>%
       growth = "linear extension"
     )
   )
-#  Fit environmental vectors (temperature & PAR only) 
-temp_par <- read.csv("../loggers/temp.par.nmds.csv", stringsAsFactors = FALSE)
 
-physio.partemp <- left_join(joined_df, temp_par,  by = c("coral.number", "Treatment", "Coral"))
-physio.partemp %>%
-  drop_na() %>%
-  dplyr::select(Treatment, Coral, temperature, PAR) -> pca.partemp
+# environmental variables from the SAME rows
+env_data <- pca.physio %>%
+  dplyr::select(temperature, PAR)
 
-env_fit_par <- envfit(pca_result, pca.partemp[, c("temperature", "PAR")], perm = 999, choices = 1:3)
+env_fit_par <- envfit(
+  pca_result,
+  env_data,
+  perm = 999,
+  choices = 1:3
+)
+
 vectors_par <- as.data.frame(scores(env_fit_par, "vectors", choices = 1:3))
 vectors_par$Parameter <- rownames(vectors_par)
 vectors_par$R2 <- round(env_fit_par$vectors$r, 2)
 vectors_par$pval <- round(env_fit_par$vectors$pvals, 3)
-
 #  Plot PCA 
-pcap <- ggplot(pca_scores, aes(x = PC1, y = PC2, color = Treatment)) +
-  geom_point(size = 1.5) +
+
+#flip
+pca_scores$PC2 <- -pca_scores$PC2
+loadings_physio$PC2 <- -loadings_physio$PC2
+vectors_par$PC2 <- -vectors_par$PC2
+
+pca_scores$PC1 <- -pca_scores$PC1
+loadings_physio$PC1 <- -loadings_physio$PC1
+vectors_par$PC1 <- -vectors_par$PC1
+
+pcap_july <- ggplot(pca_scores, aes(x = PC1, y = PC2, color = Treatment)) +
+  geom_point(size = 1) +
   #stat_ellipse(level = 0.95) +
   # Physiological loadings
   geom_segment(data = loadings_physio, aes(x = 0, y = 0, xend = PC1, yend = PC2),
-               arrow = arrow(length = unit(0.2, "cm")), color = "black") +
+               arrow = arrow(length = unit(0.1, "cm")), color = "black", 
+               linewidth = 0.3) +
   geom_text(data = loadings_physio, aes(x = PC1, y = PC2, label = Label),
-            vjust = -0.5, hjust = 0.5, size = 3, color = "black") +
+            vjust = -0.5, hjust = 0.5, size = pt_to_mm(7), color = "black") +
   # Environmental vectors (fitted)
   geom_segment(data = vectors_par, aes(x = 0, y = 0, xend = PC1, yend = PC2),
-               arrow = arrow(length = unit(0.2, "cm")), color = "red") +
+               arrow = arrow(length = unit(0.1, "cm")), color = "red", 
+               linewidth = 0.3) +
   geom_text(data = vectors_par, aes(x = PC1, y = PC2, label = Parameter),
-            vjust = -0.5, hjust = 0.5, size = 3, color = "red") +
+            vjust = -0.5, hjust = 0.5, size = pt_to_mm(7), color = "red") +
+  scale_color_manual(
+    values = treatment_colors,
+    name = "Treatment"
+  )+
   labs(
     x = paste0("PC1 (", var_explained[1], "%)"),
     y = paste0("PC2 (", var_explained[2], "%)")) +
   theme_minimal()
 
-pcap
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/pca2.jpg", pcap, width = 8, height = 6)
-
+pcap_july
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/pca2_revision.jpg", pcap, width = 8, height = 6)
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/pca2_revision.pdf", pcap, width = 8, height = 6)
+# 
 
 #  vectors significance 
 vectors_par
@@ -996,8 +1390,8 @@ infl %>%
   pivot_longer(c(PC1, PC2), names_to = "PC", values_to = "loading") %>%
   ggplot(aes(x = loading, y = Label, color = PC)) +
   geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_segment(aes(x = 0, xend = loading, yend = Label), linewidth = 0.8) +
-  geom_point(size = 3) +
+  geom_segment(aes(x = 0, xend = loading, yend = Label), linewidth = 0.4) +
+  geom_point(size = 1.5) +
   scale_color_manual(values = c("PC1" = "darkorange3", "PC2" = "darkorchid3")) +
   theme_minimal() +
   scale_x_continuous(
@@ -1012,42 +1406,187 @@ infl %>%
 
 load
 
-#### pca combining plots ####
+#### loadings July ####
+# loadings
+infl <- data.frame(
+  Variable = rownames(loadings_physio),
+  PC1 = loadings_physio[,1],
+  PC2 = loadings_physio[,2]
+)
+infl[order(infl$PC1), ]
 
-combined <- pcap + load
+infl_plot <- infl %>%
+  arrange(PC1) %>%
+  mutate(Variable = factor(Variable, levels = Variable))
+
+ggplot(infl_plot, aes(x = Variable, y = PC1)) +
+  geom_col(fill = "grey30") +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    x = NULL,
+    y = "Loading on PC1",
+    #  title = "Physiological variable loadings on PC1"
+  )
+
+
+infl_long <- infl %>%
+  pivot_longer(
+    cols = c(PC1, PC2),
+    names_to = "PC",
+    values_to = "loading") %>%
+  mutate(
+    Label = dplyr::recode(
+      Variable,
+      Protein.conc.ug.ml = "Protein",
+      cell.cm = "Cell/cm",
+      chl.cell = "Chlorophyll/cell",
+      Fv.Fm = "Fv/Fm",
+      Sigma = "σPSII",
+      Pmax.e.s = "Pmax",
+      p = "p",
+      growth = "linear extension"
+    )
+  )
+
+infl %>%
+  mutate(contrib = sqrt(PC1^2 + PC2^2)) %>%
+  mutate(
+    Label = dplyr::recode(
+      Variable,
+      Protein.conc.ug.ml = "Protein",
+      cell.cm = "Cell/cm",
+      chl.cell = "Chlorophyll/cell",
+      Fv.Fm = "Fv/Fm",
+      Sigma = "σPSII",
+      Pmax.e.s = "Pmax",
+      p = "p",
+      growth = "linear extension"
+    )
+  )%>%
+  arrange(contrib) %>%
+  mutate(Label = factor(Label, levels = Label)) %>%
+  pivot_longer(c(PC1, PC2), names_to = "PC", values_to = "loading") %>%
+  ggplot(aes(x = loading, y = Label, color = PC)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_segment(aes(x = 0, xend = loading, yend = Label), linewidth = 0.4) +
+  geom_point(size = 1.5) +
+  scale_color_manual(values = c("PC1" = "darkorange3", "PC2" = "darkorchid3")) +
+  theme_minimal() +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  labs(
+    x = "PCA loadings",
+    y = NULL,
+    color = NULL,
+    # title = "Correlation between traits and PC1-PC2"
+  ) -> load_july
+
+load_july
+
+#### pca combining plots ####
+fig_theme_sup <- theme(
+  axis.title = element_text(size = 8),
+  axis.text = element_text(size = 6),
+  legend.title = element_text(size = 8),
+  legend.text = element_text(size = 7),
+  text = element_text(size = 7)
+)
+
+pcap2 <- pcap + fig_theme_sup
+pcap_july2 <- pcap_july + fig_theme_sup
+
+combined <- pcap2 + pcap_july2
 combined <- combined + 
-  plot_annotation(tag_levels = "A") 
+  plot_annotation(tag_levels = "A")& 
+  theme(plot.tag = element_text(face = "bold", size = 9)) 
 combined
 
-# for Nov and July
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_pca.nov.lab.jpg", 
-       combined, width = 12, height = 6)
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_pca.nov.lab.pdf", 
-       combined, width = 12, height = 6)
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_fig4.pdf",
+  plot = combined,
+  width = 18.4,
+  height = 9,
+  units = "cm",
+  device = "pdf",
+  useDingbats = FALSE
+)
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_fig4.jpg",
+  plot = combined,
+  width = 18.4,
+  height = 9,
+  units = "cm",
+  device = "jpg"
+)
+# # for PCAs
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_pca.revision.jpg", 
+#        combined, width = 12, height = 6)
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_pca.revision.pdf", 
+#        combined, width = 12, height = 6)
+# 
+# # for July
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_pca.jul.lab.jpg", 
+#        combined, width = 12, height = 6)
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_pca.jul.lab.pdf", 
+#        combined, width = 12, height = 6)
 
-# for July
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_pca.jul.lab.jpg", 
-       combined, width = 12, height = 6)
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_pca.jul.lab.pdf", 
-       combined, width = 12, height = 6)
 
-#### permanova ####
+load2 <- load + fig_theme_sup
+load_july2 <- load_july + fig_theme_sup
+combined <- load2 + load_july2
+combined <- combined + 
+  plot_annotation(tag_levels = "A")& 
+  theme(plot.tag = element_text(face = "bold")) 
+combined
+
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_figS7.pdf",
+  plot = combined,
+  width = 18.4,
+  height = 9,
+  units = "cm",
+  device = "pdf",
+  useDingbats = FALSE
+)
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/combined_figS7.jpg",
+  plot = combined,
+  width = 18.4,
+  height = 9,
+  units = "cm",
+  device = "jpg"
+)
+# # for PCAs
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_load.revision.jpg", 
+#        combined, width = 12, height = 6)
+# ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_load.revision.pdf", 
+#        combined, width = 12, height = 6)
+# 
+
+#### permanova Nov and Jul ####
 # run for each pca result
+# nov and july
 partemp <- left_join(joined_df, temp_par, by = c("coral.number", "Treatment", "Coral"))
+#july
 #partemp <- left_join(physio.growth, temp_par, by = c("coral.number", "Treatment", "Coral"))
 partemp %>%
   drop_na() %>%
   dplyr::select(Treatment, temperature, PAR, Protein.conc.ug.ml, cell.cm, chl.cell, Fv.Fm, Sigma, Pmax.e.s, p) %>%
+  #dplyr::select(Treatment, temperature, PAR, growth, Protein.conc.ug.ml, cell.cm, chl.cell, Fv.Fm, Sigma, Pmax.e.s, p) %>%
   mutate(
     cell.cm = sqrt(cell.cm),
     Protein.conc.ug.ml = sqrt(Protein.conc.ug.ml),
     Pmax.e.s = log10(Pmax.e.s),
     chl.cell = log10(chl.cell)
-  ) -> perm.partemp
+  )  -> perm.partemp
 str(perm.partemp)
 
+perm.sc <- perm.partemp[ , -c(1,2,3)] %>% scale()
+
 permanova_treatment <- adonis2(
-  perm.partemp[ , -c(1,2,3)] ~ Treatment,
+  perm.sc ~ Treatment,
   data = perm.partemp,
   method = "euc",
   perm=999
@@ -1055,7 +1594,7 @@ permanova_treatment <- adonis2(
 permanova_treatment
 
 pairwise_res <- pairwise.adonis(
-  x = perm.partemp[ , -c(1,2,3)],
+  x =perm.sc,
   factors = perm.partemp$Treatment,
   sim.method="euclidean",
   perm = 999
@@ -1064,31 +1603,121 @@ pairwise_res <- pairwise.adonis(
 pairwise_res
 
 
-# numeric matrix exactly as used for PCA
-physio_mat <- pca.physio %>%
-  dplyr::select(-Treatment) %>%
+
+# 
+# # numeric matrix exactly as used for PCA
+# physio_mat <- pca.physio %>%
+#   dplyr::select(-Treatment) %>%
+#   scale()
+# 
+# # Euclidean distance (correct for scaled continuous traits)
+# dist_physio <- dist(physio_mat, method = "euclidean")
+# 
+# permanova_treatment <- adonis2(
+#   dist_physio ~ Treatment,
+#   data = pca.physio,
+#   permutations = 999
+# )
+# 
+# permanova_treatment
+# 
+# 
+# pairwise_res <- pairwise.adonis(
+#   x = dist_physio,
+#   factors = pca.physio$Treatment,
+#   perm = 999
+# )
+# 
+# pairwise_res
+
+dist_mat <- dist(perm.sc, method = "euclidean")
+
+disp <- betadisper(dist_mat, perm.partemp$Treatment)
+
+anova(disp)
+permutest(disp, permutations = 999)
+
+
+#### permanova for July ####
+partemp <- left_join(
+  physio.growth,
+  temp_par,
+  by = c("coral.number", "Treatment", "Coral")
+)
+
+perm.partemp <- partemp %>%
+  drop_na() %>%
+  dplyr::select(
+    Treatment, temperature, PAR,
+    growth, Protein.conc.ug.ml, cell.cm, chl.cell,
+    Fv.Fm, Sigma, Pmax.e.s, p
+  ) %>%
+  filter(Treatment %in% c("SS", "SD", "DD", "DS")) %>%
+  mutate(
+    Treatment = factor(Treatment, levels = c("SS", "SD", "DD", "DS")),
+    
+    origin = case_when(
+      Treatment %in% c("SS", "SD") ~ "Shallow",
+      Treatment %in% c("DD", "DS") ~ "Deep"
+    ),
+    
+    transplant_depth = case_when(
+      Treatment %in% c("SS", "DS") ~ "Shallow",
+      Treatment %in% c("SD", "DD") ~ "Deep"
+    ),
+    
+    origin = factor(origin, levels = c("Shallow", "Deep")),
+    transplant_depth = factor(transplant_depth, levels = c("Shallow", "Deep")),
+    
+    cell.cm = sqrt(cell.cm),
+    Protein.conc.ug.ml = sqrt(Protein.conc.ug.ml),
+    Pmax.e.s = log10(Pmax.e.s),
+    chl.cell = log10(chl.cell)
+  )
+
+# response matrix: physiological traits only
+perm.sc <- perm.partemp %>%
+  dplyr::select(
+    growth, Protein.conc.ug.ml, cell.cm, chl.cell,
+    Fv.Fm, Sigma, Pmax.e.s, p
+  ) %>%
   scale()
 
-# Euclidean distance (correct for scaled continuous traits)
-dist_physio <- dist(physio_mat, method = "euclidean")
-
-permanova_treatment <- adonis2(
-  dist_physio ~ Treatment,
-  data = pca.physio,
+# PERMANOVA: origin × transplant depth
+permanova_origin_transplant <- adonis2(
+  perm.sc ~ origin * transplant_depth,
+  data = perm.partemp,
+  method = "euclidean",
+  by = "term",
   permutations = 999
 )
 
-permanova_treatment
+permanova_origin_transplant
 
 
-pairwise_res <- pairwise.adonis(
-  x = dist_physio,
-  factors = pca.physio$Treatment,
+pairwise_res_treatment <- pairwise.adonis(
+  x = perm.sc,
+  factors = perm.partemp$Treatment,
+  sim.method = "euclidean",
   perm = 999
 )
 
-pairwise_res
+pairwise_res_treatment
 
+
+dist_sc <- dist(perm.sc, method = "euclidean")
+
+disp_treatment <- betadisper(dist_sc, perm.partemp$Treatment)
+permutest(disp_treatment, permutations = 999)
+
+perm.partemp$group <- interaction(
+  perm.partemp$origin,
+  perm.partemp$transplant_depth,
+  sep = "_"
+)
+
+disp_group <- betadisper(dist_sc, perm.partemp$group)
+permutest(disp_group, permutations = 999)
 #### survival  ####
 
 surv <- read.csv("../NSF_transplant_survival.csv", stringsAsFactors = FALSE)
@@ -1224,3 +1853,6 @@ s <- ggplot(plot_data, aes(x = Treatment, y = Percent,
 s
 ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/survival_horiz2.jpg", s, width = 8, height = 5)
 ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/survival_horiz2.pdf", s, width = 8, height = 5)
+
+
+
