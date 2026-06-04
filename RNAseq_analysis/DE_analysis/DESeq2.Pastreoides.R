@@ -22,7 +22,7 @@ library(stringr)
 library(ggpattern)
 library(patchwork)
 
-load("/home/gospozha/haifa/cayman/rna/mapping/github/rin/Deseq2.rrna.rin.R")
+#load("/home/gospozha/haifa/cayman/rna/mapping/github/rin/Deseq2.rrna.rin.R")
 # setting working directory 
 setwd("/home/gospozha/haifa/cayman/rna/mapping/github/")
 
@@ -337,7 +337,7 @@ combined_venn <- (
   cont | treat
 ) +
   plot_layout(widths = c(1, 1)) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '', tag_suffix = '')
+  plot_annotation(tag_levels = 'A')
 
 combined_venn
 ggsave("~/haifa/cayman/rna/mapping/github/fin/combined.venn.jpg", combined_venn, width = 10, height = 5)
@@ -501,13 +501,28 @@ combined_dge <- (
   deg.bar.diverging | wrap_elements((cont / treat))
 ) +
   plot_layout(widths = c(1, 1)) +
-  plot_annotation(tag_levels = 'A', tag_prefix = '', tag_suffix = '.')
+  plot_annotation(tag_levels = 'A')
 
 combined_dge
 # display it
 ggsave("~/haifa/cayman/rna/mapping/github/fin/combined.DGE2.jpg", combined_dge, width = 12, height =8)
 
 deg.bar.diverging
+
+
+# venn + diverging plots
+
+right_panel <- cont / treat
+
+combined_venn <- (
+  deg.bar.diverging | right_panel
+) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
+
+combined_venn
+ggsave("~/haifa/cayman/rna/mapping/github/fin/combined.DGE.revision.jpg", combined_venn, width = 12, height =8)
+ggsave("~/haifa/cayman/rna/mapping/github/fin/combined.DGE.revision.pdf", combined_venn, width = 12, height =8)
 
 #### LRT ####
 # LRT test to test the effect of depth in general
@@ -871,30 +886,54 @@ ggsave("/home/gospozha/haifa/cayman/rna/mapping/github/fin/biomin.boxplot.jpg", 
 
 
 ## heatmap to present the table
+# res_list <- list(
+#   SvD = res1,
+#   SSvDD = res2,
+#   SDvDD = res3,
+#   SSvDS = res4,
+#   DSvDD = res5,
+#   SSvSD = res6,
+#   SvSS = res7,
+#   DvDD = res8
+# )
+# change order
 res_list <- list(
   SvD = res1,
   SSvDD = res2,
-  SDvDD = res3,
+  DDvSD = res3,   # renamed from SDvDD
   SSvDS = res4,
   DSvDD = res5,
   SSvSD = res6,
   SvSS = res7,
   DvDD = res8
 )
-
+# res_long <- map2_df(
+#   res_list,
+#   names(res_list),
+#   ~ as.data.frame(.x) %>%
+#     rownames_to_column("gene") %>%
+#     # keep only gene + log2FC + padj
+#     dplyr::select(gene, log2FoldChange, padj) %>%
+#     filter(!is.na(padj), padj < 0.05) %>%   # filter significant only
+#     mutate(contrast = .y)
+# )
+# change order
 res_long <- map2_df(
   res_list,
   names(res_list),
   ~ as.data.frame(.x) %>%
     rownames_to_column("gene") %>%
-    # keep only gene + log2FC + padj
-    select(gene, log2FoldChange, padj) %>%
-    filter(!is.na(padj), padj < 0.05) %>%   # filter significant only
-    mutate(contrast = .y)
+    dplyr::select(gene, log2FoldChange, padj) %>%
+    filter(!is.na(padj), padj < 0.05) %>%
+    mutate(
+      contrast = .y,
+      log2FoldChange = ifelse(contrast == "DDvSD",
+                              -log2FoldChange,
+                              log2FoldChange)
+    )
 )
-
 res_long <- res_long %>%
-  left_join(summary_df %>% select(gene, short.gene.name) %>% distinct(),
+  left_join(summary_df %>% dplyr::select(gene, short.gene.name) %>% distinct(),
             by = "gene") %>%
   filter(!is.na(short.gene.name))
 
@@ -923,14 +962,15 @@ biomin_hm <- ggplot(res_long, aes(x = contrast, y = facet_label, fill = log2Fold
   ) +
   theme_minimal() +
   labs(
-    title = "Heatmap of DE biomineralization genes",
-    x = "Contrast", y = "Gene"
+    #title = "Heatmap of DE biomineralization genes",
+    x = "", y = ""
   ) +
   theme(axis.text.y = element_text(size = 10), axis.text.x = element_text(angle = 50, hjust = 1, size = 11), plot.title = element_text(hjust=0.8, size = 13))
 
 biomin_hm
 
-ggsave("/home/gospozha/haifa/cayman/rna/mapping/github/fin/biomin.heatmap.jpg", biomin_hm, width = 8, height = 7.5)
+ggsave("/home/gospozha/haifa/cayman/rna/mapping/github/fin/biomin.heatmap.revision.jpg", biomin_hm, width = 8, height = 7.5)
+ggsave("/home/gospozha/haifa/cayman/rna/mapping/github/fin/biomin.heatmap.revision.pdf", biomin_hm, width = 8, height = 7.5)
 
 ## barplot 
 # Define custom contrast order
@@ -959,14 +999,34 @@ res_long <- res_long %>%
   ungroup()
 
 # Reorder factor levels of y-axis
-res_long$facet_label <- factor(res_long$facet_label,
-                               levels = res_long %>%
-                                 group_by(facet_label) %>%
-                                 summarize(mean_logFC = mean(log2FoldChange, na.rm = TRUE)) %>%
-                                 arrange(desc(mean_logFC)) %>%
-                                 pull(facet_label))
+# res_long$facet_label <- factor(res_long$facet_label,
+#                                levels = res_long %>%
+#                                  group_by(facet_label) %>%
+#                                  summarize(mean_logFC = mean(log2FoldChange, na.rm = TRUE)) %>%
+#                                  arrange(desc(mean_logFC)) %>%
+#                                  dplyr::pull(facet_label))
 
 # Define your contrasts in desired order
+
+res_long <- res_long %>%
+  mutate(
+    contrast = as.character(contrast),
+    log2FoldChange = ifelse(contrast == "DDvSD", -log2FoldChange, log2FoldChange),
+    contrast = ifelse(contrast == "DDvSD", "SDvDD", contrast),
+    contrast = factor(
+      contrast,
+      levels = c("SvSS", "DvDD", "SvD", "SSvDD", "SSvSD", "DSvDD", "SSvDS", "SDvDD")
+    )
+  )
+
+gene_order <- res_long %>%
+  group_by(facet_label) %>%
+  summarise(mean_logFC = mean(log2FoldChange, na.rm = TRUE), .groups = "drop") %>%
+  arrange(-mean_logFC) %>%
+  dplyr::pull(facet_label)
+
+res_long <- res_long %>%
+  mutate(facet_label = factor(facet_label, levels = gene_order))
 contrast_levels <- rev(c("DSvDD","SDvDD","SSvDS","SSvSD","SSvDD","SvD","DvDD","SvSS"))
 
 # Define colors and shapes
@@ -1006,7 +1066,7 @@ biomin_bar <- ggplot(res_long, aes(x = facet_label, y = log2FoldChange, fill = c
   scale_fill_manual(values = contrast_colors) +
   scale_shape_manual(values = contrast_shapes) +
   theme_minimal() +
-  labs(title = "DE biomineralization genes by contrast") +
+  #labs(title = "DE biomineralization genes by contrast") +
   theme(
     plot.title = element_text(size = 13, margin = margin(t = 9, b = 6)),
     plot.margin = margin(10, 10, 8, 8),
@@ -1039,3 +1099,4 @@ wgcna_filtered <- wgcna %>%
             by = c("gene_id" = "gene")) %>%
   # optional: select relevant columns
   select(gene_id, short.gene.name, moduleCluster, moduleColor)
+
