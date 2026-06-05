@@ -5,10 +5,10 @@ library("WGCNA")
 library("flashClust")
 library("gridExtra")
 library("ComplexHeatmap")
-library("goseq")
+#library("goseq")
 library("dplyr")
-library("clusterProfiler")
-library("simplifyEnrichment")
+#library("clusterProfiler")
+#library("simplifyEnrichment")
 library(dendsort)
 library(edgeR)
 library(multcompView)
@@ -371,6 +371,23 @@ ht=Heatmap(moduleTraitCor, name = "Eigengene", column_title = "Module-trait eige
            row_names_gp = gpar(fontsize = 10, alpha = 0.75, border = TRUE, fill = htmap.colors))
 ht <- draw(ht)
 
+# for revision
+ht=Heatmap(moduleTraitCor, name = "Eigengene", column_title = "Module-trait eigengene correlation", 
+           col = blueWhiteRed(50), 
+           row_names_side = "left", row_dend_side = "left",
+           width = unit(4.4, "cm"), height = unit(10.5, "cm"), 
+           column_order = 1:6, column_dend_reorder = FALSE, cluster_columns = hclust(dist(t(moduleTraitCor)), method = "average"), column_split = 6, column_dend_height = unit(0.5, "in"),
+           cluster_rows = METree, row_split = 9, row_gap = unit(1.5, "mm"), border = TRUE,
+           cell_fun = function(j, i, x, y, w, h, col) {
+             if(heatmappval[i, j] <= 0.05) {
+               grid.text(sprintf("%s", heatmappval[i, j]), x, y, gp = gpar(fontsize = 6, fontface = "bold"))
+             }
+             else {
+               grid.text(sprintf("%s", heatmappval[i, j]), x, y, gp = gpar(fontsize = 6, fontface = "plain"))
+             }},
+           column_names_gp =  gpar(fontsize = 6),
+           row_names_gp = gpar(fontsize = 6, alpha = 0.75, border = TRUE, fill = htmap.colors))
+ht <- draw(ht)
 
 
 rcl.list <- row_order(ht)  #Extract clusters (output is a list)

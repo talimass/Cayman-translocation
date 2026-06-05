@@ -47,19 +47,20 @@ awk 'NR>1' "${OUT}_INDELs_VarScores_filterPASSED_DPfilterNoCall.GT.DP.txt" | wc 
 ### Filter for linkage disequilibrium
 [bcfplink.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/bcfplink.sh) performs pruning of SNPs that are strongly genetically linked and extracts these SNPs from the vcf file.
 
-### Filter for missing data and clonality and QC
-[plink.filter.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/plink.filter.sh) additionaly filters vcf file: removes loci with >70% missing data and with minor allele frequency <5%. It also calculates per-individual and per-SNP missingness statistics and estimates pairwise kinship coefficients using the KING algorithm.
+### QC before filtering
+[plink.qc.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/plink.qc.sh) calculates per-individual and per-SNP missingness statistics and estimates pairwise kinship coefficients using the KING algorithm.
 
-### Collapse artificial clones
-[plink.filter.relatives.all.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/plink.filter.relatives.all.sh) takes the [list](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/keep.all.txt) of samples where artificially produced clonal samples (i.e. known fragments of the same colony) are collapsed. For each genet, the sample with the lowest missingness score is retained. SNPs with >50% of missing data are additionally filtered. 
+### Filter out artificial clones
+[plink.filt.no_art.0.4.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/plink.filt.no_art.0.4.sh) takes the [list](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/keep_no_art.txt) of samples where artificially produced clonal samples (i.e. known fragments of the same colony) are collapsed. For each genet, the sample with the lowest missingness score is retained. After subsetting, it additionaly filters vcf file: removes loci with >40% missing data and with minor allele frequency <5%. [plink.qc_after_art_removal.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/plink.qc_after_art_removal.sh) performs QC for a filtered SNP dataset. 
 
 ### Kinship analysis and visualization
-[kinship.R](kinship.R) visualises the relatedness among samples.
+[kinship.R](kinship.R) visualises the relatedness among samples based on KING coefficient.
 
 ### Collapse clones and first-degree relatives based on KING coefficient
-[plink.filter.relatives.mfsonly.sh](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/plink.filter.relatives.mfsonly.sh) takes the [list](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/keep.relatives.mfsonly.txt) of samples where in addition to collapsing artificially produced clonal samples (i.e. known fragments of the same colony) the samples with a KING coefficient > 0.177 are also collapsed. In the MF shallow (S.MF) site, clonemates (KING > 0.354) are collapsed but first-degree relatives (KING > 0.177) are retained to maintain minimal sample size. For each genet, the sample with the lowest missingness score is retained. SNPs with >50% of missing data are additionally filtered. 
+[plink.filt.no_rel.0.4.sh](plink.filt.no_rel.0.4.sh) takes the [list](keep_no_rel.txt) of samples where in addition to collapsing artificially produced clonal samples (i.e. known fragments of the same colony) the samples with a KING coefficient > 0.177 are also collapsed. It also performs an additional QC. 
 
 ### Fst analysis
-[Fst.new.github.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/Fst.new.github.R) runs Fst analysis between both different depths and sites of the samples, visualises the results via heatmap and a PCA plot, runs heterozygosity analysis - everything for both datasets (18 and 14 samples). Metadata can be found [here](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/Metadata.csv).
+[Fst.new.github.R](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/Fst.new.github.R) runs Fst analysis between both different depths and sites of the samples, visualises the results via heatmap, PCA plot, builds UPGMA tree based on IBS distances, performs pcadapt analysis. Metadata can be found [here](https://github.com/talimass/Cayman-translocation/blob/main/RNAseq_analysis/Connectivity/Metadata.csv).
 
-
+### Filter out pcadapt outliers
+[plink.filt.pcadapt.sh](plink.filt.pcadapt.sh) filters out outlier SNP available [here](outliers_to_remove_0.05.txt).

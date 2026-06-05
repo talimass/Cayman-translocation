@@ -159,7 +159,7 @@ print(mean_temp)
 process_par_file <- function(filename, source_label, linetype_value, color_value,
                              start_h = 12, end_h = 14) {
   read_excel(filename, skip = 5) %>%
-    slice(-1) %>%
+    dplyr::slice(-1) %>%
     mutate(
       datetime = ymd_hms(`Colombia Time`),
       PAR = as.numeric(PAR),
@@ -276,7 +276,7 @@ PAR <- ggplot(all_data3_gapfixed, aes(x = date, y = midday_mean_PAR,
     expand = c(0,0)
   ) +
   scale_x_break(c(gap_start, gap_end)) +   # axis break
-  labs(title = "Midday average PAR",
+  labs(#title = "Midday average PAR",
        x = "Date (MM/YY)",
        y = "PAR (µmol/(s·m²))") +
   theme_minimal(base_size = 10) +
@@ -307,7 +307,7 @@ temp <- ggplot(all_temp3, aes(x = date, y = mean_temp,
     expand = c(0,0)
   ) +
   scale_x_break(c(gap_start, gap_end)) +   # axis break
-  labs(title = "Daily average temperature",
+  labs(#title = "Daily average temperature",
        x = "Date (MM/YY)",
        y = "Temperature (°C)",
        color = "Location",
@@ -331,8 +331,110 @@ combined <- combined + plot_layout(widths = c(1.4, 0.6)) +
   theme(plot.margin = margin(10, 10, 10, 10))
 combined
 
-ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_loggers_midday.pdf", combined, width = 10, height = 8)
+ggsave("~/haifa/cayman/P.astreoides_physiology/github3/5/combined_loggers_midday2.pdf", combined, width = 6, height = 4)
 
+
+
+#### plots for revision ####
+fig_theme <- theme_minimal(base_size = 7) +
+  theme(
+    text = element_text(size = 7),
+    
+    axis.title = element_text(size = 7),
+    axis.text = element_text(size = 6),
+    axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
+    
+    legend.title = element_text(size = 7),
+    legend.text = element_text(size = 6),
+    
+    strip.text = element_text(size = 6),
+    
+    axis.text.x.top = element_blank(),
+    axis.ticks.x.top = element_blank(),
+    axis.title.x.top = element_blank()
+  )
+
+PAR <- ggplot(all_data3_gapfixed, aes(x = date, y = midday_mean_PAR,
+                                      color = Location, linetype = Location)) +
+  geom_line(linewidth = 0.23) +
+  geom_vline(xintercept = as.numeric(gap_start), linetype = "dashed", color = "gray") +
+  geom_vline(xintercept = as.numeric(gap_end), linetype = "dashed", color = "gray") +
+  scale_color_manual(values = setNames(all_data3$color, all_data3$Location)) +
+  scale_linetype_manual(values = setNames(all_data3$line_type, all_data3$Location)) +
+  scale_x_date(
+    date_labels = "%m/%y",
+    date_breaks = "1 month",
+    expand = c(0, 0)
+  ) +
+  scale_x_break(c(gap_start, gap_end)) +
+  labs(
+    x = NULL,
+    y = "PAR (µmol/(s·m²))",
+    color = "Location",
+    linetype = "Location"
+  ) +
+  fig_theme+ 
+  theme(
+    legend.position = "none"
+  )
+
+temp <- ggplot(all_temp3, aes(x = date, y = mean_temp,
+                              color = Location, linetype = Location)) +
+  geom_line(linewidth = 0.23) +
+  geom_vline(xintercept = as.numeric(gap_start), linetype = "dashed", color = "gray") +
+  geom_vline(xintercept = as.numeric(gap_end), linetype = "dashed", color = "gray") +
+  scale_color_manual(values = setNames(all_temp3$color, all_temp3$Location)) +
+  scale_linetype_manual(values = setNames(all_temp3$line_type, all_temp3$Location)) +
+  scale_x_date(
+    date_labels = "%m/%y",
+    date_breaks = "1 month",
+    expand = c(0, 0)
+  ) +
+  scale_x_break(c(gap_start, gap_end)) +
+  labs(
+    x = "Date (MM/YY)",
+    y = "Temperature (°C)",
+    color = "Location",
+    linetype = "Location"
+  ) +
+   fig_theme+ 
+   theme(
+     legend.position = "none"
+   )
+
+combined <- (PAR / temp) 
+combined <- combined +
+  #plot_layout(heights = c(1, 1.4)) +
+  # plot_annotation(tag_levels = "B") +
+  plot_layout(heights = c(1, 1)) 
+combined
+
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/Fig_environment2.pdf",
+  combined,
+  width = 9,
+  height = 7.5,
+  units = "cm",
+  device = cairo_pdf
+)
+
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/PAR_panel.pdf",
+  PAR,
+  width = 9,
+  height = 3.2,
+  units = "cm",
+  device = cairo_pdf
+)
+
+ggsave(
+  "/home/gospozha/haifa/cayman/manuscript/revision/figs/temp_panel.pdf",
+  temp,
+  width = 9,
+  height = 3.2,
+  units = "cm",
+  device = cairo_pdf
+)
 #### tables for daily average par ####
 all_temp3
 all_data3_gapfixed
@@ -426,3 +528,4 @@ temp_monthly_delta <- all_temp3 %>%
 
 temp_overall <- left_join(temp_summary, temp_monthly_delta, by = c("site", "depth"))
 write.csv2(temp_overall, "~/haifa/cayman/P.astreoides_physiology/github3/5/temp.csv")
+

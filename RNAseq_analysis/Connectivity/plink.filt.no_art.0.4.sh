@@ -26,10 +26,19 @@ echo "================================"
 source /lustre1/home/mass/eskalon/miniconda/bin/activate bcftools
 
 ### Below you can enter your program job command ###
-plink2 --bfile P_astreoides_vcf_pruned_0.7 \
---keep keep.all.txt \
+plink2 --bfile ../P_astreoides_vcf_pruned \
+--keep keep_no_art.txt \
 --make-bed \
 --double-id \
 --allow-extra-chr \
---geno 0.5 \
---out P_astreoides_vcf_pruned_rel_all
+--out subset
+
+
+plink2 --bfile subset \
+--allow-extra-chr \
+--double-id \
+--geno 0.4 \
+--maf 0.05 \
+--make-bed \
+--out P_astreoides_vcf_pruned_no_art_0.4
+
