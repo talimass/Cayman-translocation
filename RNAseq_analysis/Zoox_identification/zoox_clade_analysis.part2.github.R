@@ -99,6 +99,74 @@ dev.off()
 nofreads <- as.data.frame(colSums(speciesFreq2[,-1]))
 write.csv(nofreads,file=paste0(outidx,"Nofalignedreads.csv"), row.names=TRUE)
 
+#### new genera analysis ####
+clade_map <- data.frame(
+  species = c("Dtrenchii", "symb", "syma", "Stri", "SPilosum", 
+              "Snec", "Snat", "SMicReefgen", "Slin", "SKawaF", "SGoreauC", "CladocPluteaC"),
+  clade = c("Durusdinium", "Breviolum", "Symbiodinium", "Symbiodinium", "Symbiodinium", 
+            "Symbiodinium", "Symbiodinium", "Symbiodinium", "Symbiodinium", "Fugacium", "Cladocopium", "Cladocopium")
+)
+
+
+# Merge the clade map into your original proportions table
+merged_table <- merge(clade_map, prop_table, by = "species")
+
+# Sum up the values by clade 
+# aggregate splits the sample columns by the 'clade' column and sums them
+prop_clade <- aggregate(. ~ clade, data = merged_table[, -1], FUN = sum, na.rm = TRUE)
+
+# 3. Set the clades as row names 
+rownames(prop_clade) <- prop_clade$clade
+prop_clade <- prop_clade[, -1] # Remove the 'clade' text column
+
+print(ncol(prop_clade))
+print(nrow(t_design))
+# Transpose 
+prop_clade.bray <- t(prop_clade)
+
+# Calculate Bray-Curtis 
+bray_curtis_clade <- vegdist(prop_clade.bray, method = "bray")
+
+# Run PCoA
+pcoa_clade <- cmdscale(bray_curtis_clade, k = 2, eig = TRUE)
+
+# Convert to data frame for plotting
+pcoa_clade_df <- data.frame(
+  Sample = rownames(prop_clade.bray), 
+  Axis1 = pcoa_clade$points[,1], 
+  Axis2 = pcoa_clade$points[,2]
+)
+
+# Plot Clade PCoA
+ggplot(pcoa_clade_df, aes(x = Axis1, y = Axis2, label = Sample)) +
+  geom_point(size = 3) +
+  geom_text(vjust = -1) +
+  theme_minimal() +
+  labs(x = "PCoA Axis 1", y = "PCoA Axis 2", title = "PCoA - Clade Level Bray-Curtis")
+
+# Match your design data ordering
+rownames(t_design) <- t_design$sample
+t_design$origin <- factor(t_design$origin)
+t_design$depth <- factor(t_design$depth)
+
+# Run PERMANOVA on Clade composition
+adonis2(bray_curtis_clade ~ depth, data = t_design, permutations = 10000)
+adonis2(bray_curtis_clade ~ site + depth, data = t_design, permutations = 10000)
+adonis2(bray_curtis_clade ~ site, data = t_design, permutations = 10000)
+
+prop_clade$species <- row.names(prop_clade)
+mlt1=melt(prop_clade,id.vars='species')
+mlt2=merge(mlt1,t_design1,by.x='variable',by.y='sample',all.x=T,all.y=T)
+#pdf(paste0(outidx,"species-freq-all.pdf"),width=10)
+hm1 = ggplot(data = mlt2, mapping = aes(x = variable, y = species, fill = value)) +
+  geom_raster() + ggtitle('Proportion of mapped reads') +
+  xlab("samples") +
+  ylab("symbiont species") +  
+  guides(fill=guide_legend(title="% of reads")) +
+  theme(axis.text.x=element_text(angle = 45,size = 8, vjust=.8, hjust=0.8)) + 
+  facet_grid(cols = vars(group),scale='free') +
+  scale_fill_gradientn(colours = c('white','darkorange1','darkred'), oob = scales::squish)
+#### ####
 # similarity indexes
 design.ord <- t_design[order(t_design$sample),]
 design.ord$depth = factor(design.ord$depth,levels=design_factor_levels)
