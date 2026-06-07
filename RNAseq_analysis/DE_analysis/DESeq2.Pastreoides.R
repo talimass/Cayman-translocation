@@ -98,6 +98,83 @@ summary(anova_res)
 TukeyHSD(anova_res)
 # they are the same
 
+#### within and between sample variability
+
+# remove all samples without a pair
+# reading count matrix from a file
+countData  <- read.csv2('CountMatrix.csv', header=TRUE, row.names=1, sep=',')
+colnames(countData) <- names
+# reading metadata file
+MetaData <- read.csv2('Metadata.paired.csv', header=TRUE, sep=',')
+
+MetaData$condition <- factor(MetaData$condition, levels = c("S", "D", "SS", "DD", "SD", "DS"))
+MetaData$site <- factor(MetaData$site, levels = c("MF","CC"))
+MetaData$translocation <- as.factor(MetaData$translocation)
+MetaData$month <- as.factor(MetaData$month)
+MetaData$origin <- as.factor(MetaData$origin)
+countData <- countData[ , MetaData$id] 
+
+# Create DESeq2 dataset
+dds <- DESeqDataSetFromMatrix(countData = countData, colData = MetaData, design = ~ condition)
+
+# Normalize using VST
+vsd <- vst(dds, blind=TRUE)
+normalized_counts <- assay(vsd)
+
+# Convert counts to relative abundance (proportions)
+counts_prop <- sweep(normalized_counts, 2, colSums(normalized_counts), "/")
+
+# Compute Bray-Curtis distance
+bray_dist <- vegdist(t(counts_prop), method = "bray")
+
+# PCoA
+pcoa_res <- cmdscale(bray_dist, k=2) # 2D PCoA
+pcoa_df <- data.frame(Sample = colnames(normalized_counts),
+                      PCoA1 = pcoa_res[,1],
+                      PCoA2 = pcoa_res[,2],
+                      Condition = MetaData$condition, 
+                      origin = MetaData$origin)
+
+ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, shape = Condition, color = origin )) +
+  geom_point(size=3) +
+  theme_minimal() +
+  labs(title="PCoA of Bray-Curtis Distance")
+
+# NMDS
+nmds_res <- metaMDS(bray_dist, k=2)
+
+nmds_df <- data.frame(Sample = colnames(normalized_counts),
+                      NMDS1 = nmds_res$points[,1],
+                      NMDS2 = nmds_res$points[,2],
+                      Condition = MetaData$condition,
+                      origin = MetaData$origin)
+
+ggplot(nmds_df, aes(x = NMDS1, y = NMDS2, shape = Condition, color = origin)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  labs(title="NMDS of Bray-Curtis Distance")
+
+# Extract distance matrix
+bray_mat <- as.matrix(bray_dist)
+
+# Define pairs
+pairs <- MetaData$origin  # Column with pairing information
+
+# Create a dataframe with distances
+distance_df <- expand.grid(Sample1 = rownames(bray_mat), Sample2 = colnames(bray_mat)) %>%
+  filter(Sample1 != Sample2) %>%
+  mutate(Distance = bray_mat[cbind(Sample1, Sample2)],
+         Pairing = ifelse(pairs[Sample1] == pairs[Sample2], "Within", "Between"))
+
+# Plot distance comparison
+ggplot(distance_df, aes(x = Pairing, y = Distance, fill = Pairing)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title="Within vs Between Sample Bray-Curtis Distances")
+
+wilcox.test(Distance ~ Pairing, data = distance_df) 
+# they are the same, we don't need to account for that
+
 #### DESeq2 model ####
 # setting working directory 
 setwd("/home/gospozha/haifa/cayman/rna/mapping/github/rin")
